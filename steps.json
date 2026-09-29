@@ -1,0 +1,39 @@
+{
+  "checkout": {
+    "outputs": {
+      "commit": "15c51e5d74c4d2a7bbd0691cdbcb3c3c24e3d1dd",
+      "ref": "refs/heads/main"
+    },
+    "outcome": "success",
+    "conclusion": "success"
+  },
+  "java": {
+    "outputs": {
+      "distribution": "Temurin-Hotspot",
+      "path": "/opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64",
+      "version": "17.0.20+1"
+    },
+    "outcome": "success",
+    "conclusion": "success"
+  },
+  "sdk": {
+    "outputs": {},
+    "outcome": "failure",
+    "conclusion": "failure"
+  },
+  "gradle": {
+    "outputs": {},
+    "outcome": "skipped",
+    "conclusion": "skipped"
+  },
+  "assets": {
+    "outputs": {},
+    "outcome": "skipped",
+    "conclusion": "skipped"
+  },
+  "build": {
+    "outputs": {},
+    "outcome": "skipped",
+    "conclusion": "skipped"
+  }
+}
