@@ -1,0 +1,43 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.starsign.table'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'com.starsign.table'
+        minSdk 24
+        targetSdk 35
+        versionCode Integer.parseInt(System.getenv('VERSION_CODE') ?: '1')
+        versionName "1.0." + (System.getenv('VERSION_CODE') ?: '1')
+    }
+
+    // A fixed key, so each new build installs over the last one and keeps your decks.
+    signingConfigs {
+        release {
+            storeFile file('star-sign.keystore')
+            storeType 'pkcs12'
+            storePassword 'starsign'
+            keyAlias 'starsign'
+            keyPassword 'starsign'
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.release
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation 'androidx.webkit:webkit:1.12.1'
+}
