@@ -511,6 +511,11 @@ button.pcbtn:hover .pc{transform:translateY(-3px)}
 .livebar .code{font-size:18px;letter-spacing:.12em;text-transform:uppercase}
 .status .chip{font-size:12.5px;padding:4px 10px}
 
+/* the hotspot table */
+.lanaddr{display:flex;flex-direction:column;gap:2px;padding:12px 14px;border-radius:10px;background:var(--surface-2);border:1px dashed var(--fate)}
+.lanaddr b{font-size:24px;font-weight:500;letter-spacing:.02em;color:var(--fate);overflow-wrap:anywhere}
+.lansteps{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:4px}
+
 </style>
 <style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}</style>
 </head>
@@ -1745,7 +1750,7 @@ function noteWild(){
 }
 function after(){
   if (S.tab==='gm') noteWild();
-  if (LIVE.role==='player') sendPresence();
+  if (LIVE.role==='player'){ sendPresence(); lanSave(); }
   if (ui.scrollTable){ ui.scrollTable = false; const t = document.querySelector('.table'); if (t){ const r = t.getBoundingClientRect(), vh = window.innerHeight - (window.innerWidth<900 ? 80 : 0); if (r.top < 70 || r.bottom > vh) t.scrollIntoView({block:'nearest', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'}); } }
   if (S.tab==='build') scheduleFixes();
   if (S.tab==='rules') rulesAfter();
@@ -2447,6 +2452,146 @@ function watchTable(t){
   LIVE.unsubs.push(t.onPeers(ch=>{ LIVE.peers = ch.peers; liveRefresh(); }, e=>{ LIVE.status = 'error'; LIVE.err = roomErr(e); dropLive(); liveRefresh(); }));
   LIVE.unsubs.push(t.onConnection(on=>{ LIVE.connected = on; liveRefresh(); }, ()=>{}));
 }
+
+/* ---------- The hotspot table: the GM's Android phone hosts it; no internet needed. ----------
+   The GM's app runs a small server. Android players connect through the app; any other phone
+   opens the GM's address in its browser and gets the whole app from the GM's phone. */
+const LAN = HOST==='android' || HOST==='lan';
+const LAN_PORT = 8765;
+const NATIVE = () => window.StarSignNative || null;
+let lanSink = null;
+window.__lanRecv = function(kind, text){ if (lanSink) lanSink(kind, text); };
+function lanTransport(host, port){
+  let handler = ()=>{};
+  if (HOST==='android'){
+    const n = NATIVE();
+    const t = {send: x => { try { n.lanSend(x); } catch(e){} }, close: () => { if (lanSink===sink) lanSink = null; try { n.lanClose(); } catch(e){} }, on: fn => { handler = fn; }};
+    const sink = (k, x) => handler(k, x); lanSink = sink;
+    setTimeout(()=>{ try { n.lanConnect(String(host), +port); } catch(e){ handler('close', 'The app couldn’t open a connection.'); } }, 0);
+    return t;
+  }
+  let ws = null;
+  try { ws = new WebSocket(`ws://${host}:${port}/ws`); } catch(e){ setTimeout(()=>handler('close', 'Couldn’t connect.'), 0); return {send(){}, close(){}, on(fn){ handler = fn; }}; }
+  ws.onopen = () => handler('open');
+  ws.onmessage = e => handler('msg', String(e.data));
+  ws.onclose = () => handler('close', 'connection lost');
+  return {send: x => { try { if (ws.readyState===1) ws.send(x); } catch(e){} }, close: () => { try { ws.close(); } catch(e){} }, on: fn => { handler = fn; }};
+}
+// The same shape as the Claude live table, so the rest of the app doesn't care which one it has.
+function lanTable(host, port, role){
+  const T = {me:null, peersList:[], ph:new Set(), th:{}, ch:new Set(), conn:false, mine:{}, left:false, tr:null, retry:null, saves:[], onSaves:null, onState:null, onDenied:null, resolve:null, reject:null};
+  const toPeer = p => { let pr = {}; try { pr = JSON.parse(p.presence); if (!pr || typeof pr!=='object' || Array.isArray(pr)) pr = {}; } catch(e){}
+    return Object.freeze({peer:String(p.peer), by:null, isMe:p.peer===T.me, sameTab:p.peer===T.me, kind:'viewer', guest:false, role:p.role==='gm'?'gm':'player', presence:Object.freeze(pr), updatedAt:+p.at||Date.now()}); };
+  function connect(){
+    const tr = T.tr = lanTransport(host, port);
+    tr.on((k, x)=>{
+      if (T.tr!==tr) return;
+      if (k==='open'){
+        T.conn = true; tr.send('hello\n'+role);
+        if (Object.keys(T.mine).length) tr.send('presence\n'+JSON.stringify(T.mine));
+        T.ch.forEach(f=>f(true));
+        if (T.resolve){ T.resolve(); T.resolve = T.reject = null; }
+      } else if (k==='msg'){
+        let m; try { m = JSON.parse(x); } catch(e){ return; }
+        if (!m || typeof m!=='object') return;
+        if (m.t==='welcome'){ T.me = String(m.id); }
+        else if (m.t==='peers' && Array.isArray(m.peers)){ T.peersList = m.peers.slice(0, 64).map(toPeer); const ch = {peers:T.peersList, joined:[], left:[], updated:[]}; T.ph.forEach(f=>f(ch)); }
+        else if (m.t==='emit'){ let d = null; try { d = JSON.parse(m.data); } catch(e){} const msg = {topic:String(m.topic), data:d, peer:String(m.from), isMe:m.from===T.me, sameTab:m.from===T.me}; (T.th[msg.topic]||[]).forEach(f=>f(msg)); }
+        else if (m.t==='saves' && Array.isArray(m.names)){ T.saves = m.names.slice(0, 60).map(n=>clean(n,40)).filter(Boolean); if (T.onSaves) T.onSaves(T.saves); }
+        else if (m.t==='state' && typeof m.data==='string'){ if (T.onState) T.onState(clean(m.name,40), m.data); }
+        else if (m.t==='error' && m.code==='not_permitted'){ if (T.onDenied) T.onDenied(); }
+      } else if (k==='close'){
+        const was = T.conn; T.conn = false;
+        if (was) T.ch.forEach(f=>f(false));
+        if (T.reject){ T.reject({code:'unreachable', message:x}); T.resolve = T.reject = null; T.left = true; return; }
+        if (!T.left){ clearTimeout(T.retry); T.retry = setTimeout(connect, 3000); }
+      }
+    });
+  }
+  const api = {
+    presence(patch){ for (const [k,v] of Object.entries(patch)){ if (v===null) delete T.mine[k]; else T.mine[k] = v; } if (T.conn) T.tr.send('presence\n'+JSON.stringify(T.mine)); return Promise.resolve(); },
+    peers(){ return T.peersList; },
+    onPeers(fn){ T.ph.add(fn); if (T.peersList.length) setTimeout(()=>fn({peers:T.peersList, joined:[], left:[], updated:[]}), 0); return ()=>T.ph.delete(fn); },
+    on(topic, fn){ (T.th[topic] = T.th[topic]||[]).push(fn); return ()=>{ T.th[topic] = (T.th[topic]||[]).filter(f=>f!==fn); }; },
+    emit(topic, data){ if (T.conn) T.tr.send('emit\n'+topic+'\n'+JSON.stringify(data)); return Promise.resolve(); },
+    connected(){ return T.conn; },
+    onConnection(fn){ T.ch.add(fn); setTimeout(()=>fn(T.conn), 0); return ()=>T.ch.delete(fn); },
+    leave(){ T.left = true; clearTimeout(T.retry); try { if (T.tr) T.tr.close(); } catch(e){} return Promise.resolve(); },
+    save(name, json){ if (T.conn) T.tr.send('save\n'+name+'\n'+json); },
+    load(name){ if (T.conn) T.tr.send('load\n'+name); },
+    T,
+  };
+  const ready = new Promise((res, rej)=>{ T.resolve = res; T.reject = rej; });
+  connect();
+  const timeout = new Promise((_, rej)=>setTimeout(()=>rej({code:'timeout'}), 8000));
+  return Promise.race([ready, timeout]).then(()=>api, e=>{ api.leave(); throw e; });
+}
+function lanAddr(x){
+  const s = String(x||'').trim().replace(/^[a-z]+:\/\//i,'').replace(/\/.*$/,'');
+  const m = s.match(/^([0-9a-z.\-]+)(?::(\d{2,5}))?$/i);
+  return m ? {host:m[1], port:+(m[2]||LAN_PORT)} : null;
+}
+const LAN_UNREACHABLE = a => `Couldn’t reach the GM’s phone${a ? ' at '+a : ''}. Check that you’re on the GM’s hotspot (or the same Wi-Fi) and that the GM has tapped Host a table.`;
+async function hostLan(){
+  const n = NATIVE();
+  if (!n || typeof n.startServer!=='function'){ LIVE.err = 'Tables without internet are hosted by the Star-Sign Table Android app.'; liveRefresh(); return; }
+  if (LIVE.table) return;
+  let info = {ok:false};
+  try { info = JSON.parse(n.startServer()); } catch(e){}
+  if (!info.ok){ LIVE.status = 'error'; LIVE.err = 'Couldn’t start the table on this phone.' + (info.error ? ' ('+clean(info.error,80)+')' : ''); S.gm.hosting = false; liveRefresh(); return; }
+  LIVE.lan = {port: num(info.port, 1, 65535, LAN_PORT), addresses: Array.isArray(info.addresses) ? info.addresses.slice(0,6).map(a=>clean(a,40)) : []};
+  LIVE.status = 'connecting'; LIVE.err = null; liveRefresh();
+  try {
+    const t = await lanTable('127.0.0.1', LIVE.lan.port, 'gm');
+    LIVE.table = t; LIVE.role = 'gm'; LIVE.status = 'on'; S.gm.hosting = true;
+    t.T.onDenied = () => { LIVE.cantEmit = true; liveRefresh(); };
+    await t.presence({role:'gm', game:S.game, v:1});
+    watchTable(t); LIVE.peers = t.peers();
+    clearInterval(LIVE.lanTimer);
+    LIVE.lanTimer = setInterval(()=>{ try { const i = JSON.parse(n.serverInfo()); const a = Array.isArray(i.addresses) ? i.addresses.slice(0,6).map(x=>clean(x,40)) : []; if (a.join()!==LIVE.lan.addresses.join()){ LIVE.lan.addresses = a; liveRefresh(); } } catch(e){} }, 4000);
+    try { n.keepAwake(true); } catch(e){}
+  } catch(e){ LIVE.status = 'error'; LIVE.err = 'The table started but this app couldn’t join it. Stop hosting and try again.'; try { n.stopServer(); } catch(x){} S.gm.hosting = false; }
+  flush(); liveRefresh();
+}
+async function findLan(){
+  const n = NATIVE(); LIVE.looking = true; LIVE.err = null;
+  let g = null;
+  try { const i = JSON.parse(n.findGm()); if (i && i.gateway) g = clean(i.gateway, 40); } catch(e){}
+  LIVE.gateway = g; liveRefresh();
+  if (g) await joinLan(g + ':' + LAN_PORT, true);
+}
+async function joinLan(addr, quiet){
+  const a = lanAddr(addr);
+  if (!a){ LIVE.err = 'Type the address the GM’s screen shows, like 192.168.43.1:8765.'; liveRefresh(); return; }
+  if (LIVE.table){ const old = LIVE.table; dropLive(); try { await old.leave(); } catch(e){} }
+  LIVE.status = 'connecting'; LIVE.err = null; liveRefresh();
+  try {
+    const t = await lanTable(a.host, a.port, 'player');
+    LIVE.table = t; LIVE.role = 'player'; LIVE.status = 'on'; LIVE.looking = false; LIVE.code = a.host + ':' + a.port; S.table = {lan: LIVE.code};
+    LIVE.unsubs.push(t.on('enc', m=>onEnc(m)));
+    LIVE.unsubs.push(t.on('wild', m=>onWild(m)));
+    if (HOST==='lan'){
+      t.T.onSaves = () => liveRefresh();
+      t.T.onState = (name, data) => restoreFromTable(name, data);
+    }
+    watchTable(t); LIVE.peers = t.peers(); LIVE.sent = '';
+    sendPresence();
+  } catch(e){ LIVE.status = 'off'; LIVE.err = quiet ? null : LAN_UNREACHABLE(a.host + (a.port!==LAN_PORT ? ':'+a.port : '')); if (quiet) LIVE.looking = true; S.table = HOST==='lan' ? S.table : null; }
+  flush(); liveRefresh();
+}
+// Browser players keep a copy of their decks on the GM's phone, so they can pick up where they left off.
+let lanSaved = '', lanSaveT = null;
+function lanSave(){
+  if (HOST!=='lan' || !LIVE.table || !LIVE.table.connected || !LIVE.table.connected()) return;
+  const deck = activeDeck(); if (!deck || deck.ex) return;
+  clearTimeout(lanSaveT);
+  lanSaveT = setTimeout(()=>{ const j = JSON.stringify(S); if (j===lanSaved) return; lanSaved = j; LIVE.table.save(clean(deck.name,40), j); }, 1500);
+}
+function restoreFromTable(name, data){
+  try { const o = JSON.parse(data); if (!o || o.v!==1 || !Array.isArray(o.decks)) throw 0;
+    const tab = S.tab; S = Object.assign(fresh(), o); S.tab = tab; S.table = {lan: LIVE.code}; migrate(); ui.pickSave = false; render(); toast(`Welcome back, ${name}`);
+  } catch(e){ toast('That save couldn’t be read'); }
+}
 async function hostTable(){
   const room = await roomNS();
   if (!room){ LIVE.status = 'error'; LIVE.err = 'Live tables need this page open from its link, with an internet connection.'; liveRefresh(); return; }
@@ -2465,7 +2610,8 @@ async function hostTable(){
 async function closeTable(){
   const t = LIVE.table; dropLive(); S.gm.hosting = false; S.table = null; LIVE.status = 'off';
   try { if (t) await t.leave(); } catch(e){}
-  try { const r = await roomNS(); if (r) await r.presence({role:null, table:null, game:null}); } catch(e){}
+  if (LAN){ clearInterval(LIVE.lanTimer); LIVE.lan = null; const n = NATIVE(); try { if (n){ n.stopServer(); n.keepAwake(!!S.settings.wake); } } catch(e){} }
+  else { try { const r = await roomNS(); if (r) await r.presence({role:null, table:null, game:null}); } catch(e){} }
   flush(); render();
 }
 async function findTables(){
@@ -2509,7 +2655,7 @@ function myStatus(){
   else if (r && (r.kind==='cast' || r.kind==='burn')) last = {k: clean(r.label, 32), burn: r.cards.length};
   return {role:'player', v:1, name:clean(deck.name,40), level:deck.level||1, game:deck.game, sign:deck.sign||'', ab: L.ABIL[deck.ability] ? L.ABIL[deck.ability].name : '',
     size:deckSize(deck), left:st.draw.length, lvl:st.level, col:st.collapsed?1:0, hero:st.hero, insp:st.inspiration?1:0, enc:st.inEncounter?1:0,
-    held:st.held.length, kept:st.kept.map(x=>x.kind==='sun'?'S':'E').join(''), last};
+    held:st.held.length, kept:st.kept.map(x=>x.kind==='sun'?'S':'E').join(''), last, none:null};   // presence merges fields, so clear any old "no deck" flag
 }
 function sendPresence(){
   if (LIVE.role!=='player' || !LIVE.table) return;
@@ -2605,7 +2751,8 @@ function tablePanelInner(){
   const hosting = LIVE.role==='gm' && LIVE.table;
   const players = hosting ? LIVE.peers.filter(p=>p.presence && p.presence.role==='player').length : 0;
   let live = '';
-  if (LIVE.avail===false) live = `<p class="note">${HOST==='claude' ? 'Live tables need this page open from its link with an internet connection.' : 'Live tables run in the Claude version of this app.'} Turn on <b>Show decks on this device</b> to see the decks kept here, for a table sharing one phone or tablet.</p>`;
+  if (LAN) live = lanHostBar(hosting, players);
+  else if (LIVE.avail===false) live = `<p class="note">${HOST==='claude' ? 'Live tables need this page open from its link with an internet connection.' : 'Live tables run in the Claude version of this app.'} Turn on <b>Show decks on this device</b> to see the decks kept here, for a table sharing one phone or tablet.</p>`;
   else if (hosting) live = `<div class="livebar"><span class="chip good">● Live</span><span>Table code <b class="mono code">${esc(LIVE.code)}</b></span><span class="muted small">${players ? plural(players,'player')+' connected' : 'Waiting for players: they tap Join the GM’s table in Play'}${LIVE.connected===false ? ' · reconnecting…' : ''}</span><button class="btn sm" data-act="table-close">Close the table</button></div>`;
   else if (LIVE.status==='connecting') live = `<div class="livebar"><span class="chip">Connecting…</span></div>`;
   else live = `<div class="livebar"><button class="btn sm fate" data-act="table-host">Open a live table</button><span class="note">Players join from their own phones and their decks show up here.</span></div>`;
@@ -2623,7 +2770,22 @@ function tablePanelInner(){
     ${LIVE.cantEmit ? `<p class="note">Only the page’s owner or an editor can start encounters or send wild magic to players’ phones. Tell the table instead.</p>` : ''}
     ${who}`;
 }
+function lanHostBar(hosting, players){
+  if (HOST!=='android') return `<p class="note">Only the Star-Sign Table Android app can host a table. You can still use <b>Show decks on this device</b>.</p>`;
+  if (hosting){
+    const a = LIVE.lan && LIVE.lan.addresses || [], port = LIVE.lan ? LIVE.lan.port : LAN_PORT;
+    const addr = a[0] ? `${a[0]}:${port}` : '';
+    return `<div class="livebar lan"><span class="chip good">● Hosting</span><span class="muted small">${players ? plural(players,'player')+' connected' : 'No players yet'}${LIVE.connected===false ? ' · reconnecting…' : ''}</span><button class="btn sm" data-act="table-close">Stop hosting</button></div>
+      ${addr ? `<div class="lanaddr"><span class="small muted">Players join at</span><b class="mono">${esc(addr)}</b>${a.length>1 ? `<span class="small muted">or ${a.slice(1).map(x=>esc(x+':'+port)).join(', ')}</span>` : ''}</div>`
+        : `<p class="callout gold small">Turn on this phone’s hotspot, and the address for players appears here.</p>`}
+      <ol class="note lansteps"><li>Turn on this phone’s <b>hotspot</b>. It works with no signal and no data.</li><li>Players connect to your hotspot in their Wi-Fi settings.</li><li>Players with the Android app tap <b>Join the GM’s table</b> in Play. Any other phone opens <b>${addr ? esc('http://'+addr) : 'the address above'}</b> in its browser.</li></ol>
+      <p class="note">Keep this app open while you play; the screen stays on.</p>`;
+  }
+  if (LIVE.status==='connecting') return `<div class="livebar"><span class="chip">Starting…</span></div>`;
+  return `<div class="livebar"><button class="btn sm fate" data-act="table-host">Host a table on this phone</button><span class="note">No internet needed: players connect to your phone’s hotspot.</span></div>`;
+}
 function playTableInner(){
+  if (LAN) return playLanInner();
   const on = LIVE.role==='player' && LIVE.table;
   if (on){
     const gm = LIVE.peers.some(p=>p.presence && p.presence.role==='gm');
@@ -2639,6 +2801,27 @@ function playTableInner(){
     <p class="note">Share this deck’s status with the GM’s screen while you play.</p>
     ${LIVE.looking ? (list ? `<div class="row">${list}</div>` : '<p class="small muted">Looking for open tables… If none shows up, type the GM’s code.</p>') : `<div class="row"><button class="btn sm primary" data-act="table-find">Join the GM’s table</button></div>`}
     ${LIVE.looking ? `<div class="row"><input class="input mono" id="table-code" style="width:120px" placeholder="code" maxlength="4" autocomplete="off" spellcheck="false" aria-label="Table code"><button class="btn sm" data-act="table-join-code">Join</button></div>` : ''}
+    ${LIVE.status==='connecting' ? '<p class="small muted">Connecting…</p>' : ''}${LIVE.err ? `<p class="callout bad small">${esc(LIVE.err)}</p>` : ''}`;
+}
+function playLanInner(){
+  const on = LIVE.role==='player' && LIVE.table;
+  const saves = HOST==='lan' && ui.pickSave && on && LIVE.table.T && LIVE.table.T.saves.length ? LIVE.table.T.saves : null;
+  const pick = saves ? `<div class="callout gold"><p><b>Played at this table before?</b> Pick your character to get your decks back.</p><div class="row" style="margin-top:8px">${saves.map(n=>`<button class="btn sm primary" data-act="table-load" data-name="${esc(n)}">${esc(n)}</button>`).join('')}<button class="btn sm" data-act="table-nosave">I’m new</button></div></div>` : '';
+  if (on){
+    const gm = LIVE.peers.some(p=>p.role==='gm' || (p.presence && p.presence.role==='gm'));
+    const others = LIVE.peers.filter(p=>p.presence && p.presence.role==='player' && !p.sameTab).length;
+    return `<div class="panel-h"><h2>The GM’s table</h2><span class="chip ${LIVE.connected===false?'warn':'good'}">● ${LIVE.connected===false ? 'Reconnecting' : 'Joined'}</span></div>${pick}
+      <p class="small">${gm ? 'The GM is here' : 'The GM isn’t connected right now'}${others ? ` · ${plural(others,'other player')}` : ''} · no internet needed</p>
+      <p class="note">The GM sees this deck’s cards left, ${W().exh}, ${isP()?'Hero Points':'Inspiration'} and your last draw.${HOST==='lan' ? ' A copy of your decks is kept on the GM’s phone, so you can pick up next time.' : ''}</p>
+      ${HOST==='android' ? `<div class="row"><button class="btn sm" data-act="table-leave">Leave the table</button></div>` : ''}`;
+  }
+  if (HOST==='lan') return `<div class="panel-h"><h2>The GM’s table</h2><span class="chip warn">Not connected</span></div>
+    <p class="note">${LIVE.status==='connecting' ? 'Connecting to the GM’s phone…' : 'This page came from the GM’s phone but can’t reach it right now. Check you’re still on the GM’s hotspot.'}</p>
+    ${LIVE.status==='connecting' ? '' : `<div class="row"><button class="btn sm primary" data-act="table-rejoin">Try again</button></div>`}`;
+  return `<div class="panel-h"><h2>The GM’s table</h2><span class="hint">No internet needed</span></div>
+    <p class="note">Connect to the GM’s hotspot in your Wi-Fi settings, then join. The GM sees your deck’s status while you play.</p>
+    <div class="row"><button class="btn sm primary" data-act="table-find">Join the GM’s table</button></div>
+    ${LIVE.looking ? `<p class="small muted">${LIVE.gateway ? `Couldn’t find a table at ${esc(LIVE.gateway)}. ` : ''}Type the address the GM’s screen shows:</p><div class="row"><input class="input mono" id="table-code" style="width:190px" placeholder="192.168.43.1:8765" value="${esc(LIVE.gateway ? LIVE.gateway+':'+LAN_PORT : '')}" autocomplete="off" spellcheck="false" inputmode="url" aria-label="The GM’s address"><button class="btn sm" data-act="table-join-code">Join</button></div>` : ''}
     ${LIVE.status==='connecting' ? '<p class="small muted">Connecting…</p>' : ''}${LIVE.err ? `<p class="callout bad small">${esc(LIVE.err)}</p>` : ''}`;
 }
 async function tableEnc(){
@@ -2765,7 +2948,7 @@ async function saveOffline(){
 }
 let wakeLock = null;
 async function keepAwake(){
-  try { if (window.StarSignNative && window.StarSignNative.keepAwake){ window.StarSignNative.keepAwake(!!S.settings.wake); return; } } catch(e){}
+  try { if (window.StarSignNative && window.StarSignNative.keepAwake){ window.StarSignNative.keepAwake(!!S.settings.wake || LIVE.role==='gm'); return; } } catch(e){}
   if (!S.settings.wake || wakeLock) return;
   try { if ('wakeLock' in navigator){ wakeLock = await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release', ()=>{ wakeLock = null; }); } } catch(e){}
 }
@@ -2867,11 +3050,14 @@ const ACT = {
   flatdc(el){ S.gm.flatDc = Math.max(1, Math.min(25, (+S.gm.flatDc||11) + (+el.dataset.d))); render(); },
   dying(el){ S.gm.dying = +el.dataset.n; render(); },
   who(el){ S.gm.who = el.dataset.name || null; liveRefresh(); flush(); },
-  'table-host'(){ hostTable(); },
+  'table-host'(){ if (LAN) hostLan(); else hostTable(); },
   'table-close'(){ closeTable(); },
-  'table-find'(){ findTables(); },
+  'table-find'(){ if (LAN) findLan(); else findTables(); },
   'table-join'(el){ joinTable(el.dataset.code); },
-  'table-join-code'(){ const i = $('table-code'); joinTable(i ? i.value : ''); },
+  'table-join-code'(){ const i = $('table-code'); if (LAN) joinLan(i ? i.value : ''); else joinTable(i ? i.value : ''); },
+  'table-rejoin'(){ joinLan(HOST==='lan' ? location.host : (S.table && S.table.lan) || ''); },
+  'table-load'(el){ if (LIVE.table && LIVE.table.load) LIVE.table.load(el.dataset.name); },
+  'table-nosave'(){ ui.pickSave = false; liveRefresh(); },
   'table-leave'(){ leaveTable(); },
   'table-enc'(){ tableEnc(); },
   'table-local'(){ S.gm.showLocal = !S.gm.showLocal; render(); },
@@ -3004,6 +3190,13 @@ function migrate(){
   for (const d of S.decks) if (!d.level) d.level = 1;
 }
 async function liveBoot(){
+  if (LAN){
+    LIVE.avail = true;
+    if (HOST==='android'){ if (S.gm.hosting) await hostLan(); else if (S.table && S.table.lan) await joinLan(S.table.lan, true); }
+    else { ui.pickSave = !S.decks.some(d=>!d.ex); await joinLan(location.host || ('localhost:'+LAN_PORT)); }
+    liveRefresh(); return;
+  }
+  if (HOST==='web' || HOST==='file'){ LIVE.avail = false; liveRefresh(); return; }
   const room = await roomNS();
   if (!room){ liveRefresh(); return; }
   if (S.gm.hosting) await hostTable();
