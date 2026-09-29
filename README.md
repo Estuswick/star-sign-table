@@ -11,8 +11,8 @@ It works with no internet once it's on your phone.
 
 ## Get it
 
-- **Any phone or computer:** open the website (see the repository's About box), then install it: on Android, Chrome's menu → *Install app*; on iPhone, Safari's Share button → *Add to Home Screen*.
-- **Android app file:** [StarSignTable.apk](../../raw/apk/StarSignTable.apk). Your phone will ask you to allow installs from your browser or files app. New versions install over the old one and keep your decks.
+- **Any phone or computer:** open **https://estuswick.github.io/star-sign-table/**, then install it: on Android, Chrome's menu → *Install app*; on iPhone, Safari's Share button → *Add to Home Screen*.
+- **Android app file:** [StarSignTable.apk](https://github.com/Estuswick/star-sign-table/raw/apk/StarSignTable.apk). Your phone will ask you to allow installs from your browser or files app. New versions install over the old one and keep your decks.
 
 ## What's in here
 
