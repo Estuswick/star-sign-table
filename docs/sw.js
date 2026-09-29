@@ -1,5 +1,5 @@
 /* Star-Sign Table: keeps the app on the phone so it opens with no internet. */
-const VERSION = 'sst-cc59a1387d67';
+const VERSION = 'sst-a786294f97ce';
 const FONTS = 'sst-fonts';
 const CORE = ['./', './index.html', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png', './icons/maskable-512.png', './icons/apple-touch-icon.png', './icons/favicon-32.png'];
 self.addEventListener('install', e => {
