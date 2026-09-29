@@ -16,20 +16,27 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        id: checkout
 
       - uses: actions/setup-java@v4
+        id: java
         with:
           distribution: temurin
           java-version: '17'
 
       - uses: android-actions/setup-android@v3
+        id: sdk
 
       - uses: gradle/actions/setup-gradle@v4
+        id: gradle
         with:
           gradle-version: '8.11.1'
 
       - name: Put the app inside the Android project
+        id: assets
         run: |
+          exec > >(tee -a prepare.log) 2>&1
+          set -x
           mkdir -p android/app/src/main/assets
           cp docs/index.html android/app/src/main/assets/index.html
           cp -r docs/icons android/app/src/main/assets/icons
@@ -38,6 +45,7 @@ jobs:
           python3 tools/localize_fonts.py android/app/src/main/assets/index.html || echo "Fonts not copied; the app will use the phone's fonts."
 
       - name: Build the app
+        id: build
         working-directory: android
         env:
           VERSION_CODE: ${{ github.run_number }}
@@ -67,6 +75,11 @@ jobs:
         run: |
           mkdir -p logs
           cp build.log logs/ 2>/dev/null || echo "The build stopped before Gradle ran." > logs/build.log
+          cp prepare.log logs/ 2>/dev/null || true
+          cat > logs/steps.json <<'JSON'
+          ${{ toJSON(steps) }}
+          JSON
+          (java -version; echo "ANDROID_HOME=$ANDROID_HOME"; ls "$ANDROID_HOME" "$ANDROID_HOME/platforms" "$ANDROID_HOME/build-tools" 2>&1; which gradle; gradle --version) > logs/env.txt 2>&1 || true
           cd logs
           git init -q
           git checkout -q -b ci-log
