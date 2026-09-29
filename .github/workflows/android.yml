@@ -24,13 +24,7 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - uses: android-actions/setup-android@v3
-        id: sdk
-
-      - uses: gradle/actions/setup-gradle@v4
-        id: gradle
-        with:
-          gradle-version: '8.11.1'
+      # GitHub's machines already have the Android SDK; the project brings its own Gradle (gradlew).
 
       - name: Put the app inside the Android project
         id: assets
@@ -51,7 +45,8 @@ jobs:
           VERSION_CODE: ${{ github.run_number }}
         run: |
           set -o pipefail
-          gradle assembleRelease --no-daemon --stacktrace 2>&1 | tee ../build.log
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null 2>&1 || true
+          ./gradlew assembleRelease --no-daemon --stacktrace 2>&1 | tee ../build.log
 
       - name: Publish StarSignTable.apk to the apk branch
         run: |
@@ -79,7 +74,7 @@ jobs:
           cat > logs/steps.json <<'JSON'
           ${{ toJSON(steps) }}
           JSON
-          (java -version; echo "ANDROID_HOME=$ANDROID_HOME"; ls "$ANDROID_HOME" "$ANDROID_HOME/platforms" "$ANDROID_HOME/build-tools" 2>&1; which gradle; gradle --version) > logs/env.txt 2>&1 || true
+          (java -version; echo "ANDROID_HOME=$ANDROID_HOME"; ls "$ANDROID_HOME" "$ANDROID_HOME/platforms" "$ANDROID_HOME/build-tools" 2>&1; cat android/gradle/wrapper/gradle-wrapper.properties) > logs/env.txt 2>&1 || true
           cd logs
           git init -q
           git checkout -q -b ci-log
