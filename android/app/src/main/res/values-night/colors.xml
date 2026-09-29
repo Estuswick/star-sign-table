@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The same book by candlelight. -->
+    <color name="page">#17110B</color>
+    <color name="bar">#231910</color>
+    <color name="rubric">#E27358</color>
+</resources>

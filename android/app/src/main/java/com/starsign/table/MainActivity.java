@@ -4,7 +4,9 @@ import android.app.Activity;
 import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
+import android.content.res.Configuration;
 import android.graphics.Color;
+import android.graphics.drawable.GradientDrawable;
 import android.net.ConnectivityManager;
 import android.net.LinkProperties;
 import android.net.Network;
@@ -12,8 +14,11 @@ import android.net.NetworkCapabilities;
 import android.net.RouteInfo;
 import android.net.Uri;
 import android.net.wifi.WifiManager;
+import android.os.Build;
 import android.os.Bundle;
+import android.view.View;
 import android.view.ViewGroup;
+import android.view.WindowInsetsController;
 import android.view.WindowManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebResourceRequest;
@@ -47,6 +52,8 @@ public class MainActivity extends Activity {
     private static final int TABLE_PORT = 8765;
 
     private WebView web;
+    private FrameLayout root;
+    private volatile boolean night;
     private TableServer server;
     private LanClient client;
 
@@ -54,12 +61,16 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // Keep the page clear of the status bar and navigation bar.
-        FrameLayout root = new FrameLayout(this);
+        // Keep the page clear of the status bar and navigation bar. Behind the bars: the page's
+        // own colours (parchment by day, candlelight by night), until the page sends its exact ones.
+        night = isNightMode(getResources().getConfiguration());
+        int page = getResources().getColor(R.color.page, getTheme());
+        int bar = getResources().getColor(R.color.bar, getTheme());
+        root = new FrameLayout(this);
         root.setFitsSystemWindows(true);
-        root.setBackgroundColor(Color.parseColor("#161C3F"));
+        root.setBackground(barsBackground(page, bar));
         web = new WebView(this);
-        web.setBackgroundColor(Color.parseColor("#0E1227"));
+        web.setBackgroundColor(page);
         root.addView(web, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         setContentView(root);
 
@@ -100,6 +111,25 @@ public class MainActivity extends Activity {
 
     /** What the page can ask of the phone. Every method runs off the main thread. */
     private class Bridge {
+        /** Is the phone in dark mode? The page's "Auto" theme follows this. */
+        @JavascriptInterface
+        public boolean isNight() {
+            return night;
+        }
+
+        /** Colour the status bar (top) and navigation bar (bottom) to match the page. */
+        @JavascriptInterface
+        public void setBars(final String top, final String bottom, final boolean dark) {
+            final int t, b;
+            try {
+                t = Color.parseColor(top.trim());
+                b = Color.parseColor(bottom.trim());
+            } catch (IllegalArgumentException e) {
+                return;
+            }
+            runOnUiThread(() -> applyBars(t, b, dark));
+        }
+
         /** Keep the screen on during a session (Settings in the app, and always while hosting). */
         @JavascriptInterface
         public void keepAwake(final boolean on) {
@@ -191,6 +221,45 @@ public class MainActivity extends Activity {
                 if (client != null) client.close();
                 client = null;
             }
+        }
+    }
+
+    /** Top half one colour, bottom half another: only the strips under the system bars show. */
+    private static GradientDrawable barsBackground(int top, int bottom) {
+        return new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, new int[]{top, top, bottom, bottom});
+    }
+
+    @SuppressWarnings("deprecation")
+    private void applyBars(int top, int bottom, boolean dark) {
+        if (root != null) root.setBackground(barsBackground(top, bottom));
+        getWindow().setStatusBarColor(top);
+        getWindow().setNavigationBarColor(bottom);
+        if (Build.VERSION.SDK_INT >= 30) {
+            WindowInsetsController c = getWindow().getInsetsController();
+            if (c != null) {
+                int light = WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS | WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS;
+                c.setSystemBarsAppearance(dark ? 0 : light, light);
+            }
+        } else {
+            View d = getWindow().getDecorView();
+            int f = d.getSystemUiVisibility();
+            int light = View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR | (Build.VERSION.SDK_INT >= 26 ? View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR : 0);
+            d.setSystemUiVisibility(dark ? (f & ~light) : (f | light));
+        }
+    }
+
+    private static boolean isNightMode(Configuration c) {
+        return (c.uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
+    }
+
+    /** The phone switched between light and dark mode while the app was open. */
+    @Override
+    public void onConfigurationChanged(Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+        boolean n = isNightMode(newConfig);
+        if (n != night) {
+            night = n;
+            if (web != null) web.evaluateJavascript("window.__themeChanged&&window.__themeChanged()", null);
         }
     }
 

@@ -21,6 +21,11 @@ def main(page):
         print("no Google Fonts link found"); return
     href = m.group(1).replace("&amp;", "&")
     css = get(href).decode("utf-8")
+    # Keep only the Latin character sets (the app is in English); skips Cyrillic, Greek and so on.
+    blocks = re.findall(r"(?:/\* ([a-z0-9-]+) \*/\s*)?(@font-face\s*\{[^}]*\})", css)
+    kept = [("/* %s */\n" % k if k else "") + b for k, b in blocks if not k or k in ("latin", "latin-ext")]
+    if kept:
+        css = "\n".join(kept) + "\n"
     out_dir = os.path.join(os.path.dirname(page), "fonts")
     os.makedirs(out_dir, exist_ok=True)
     n = 0
