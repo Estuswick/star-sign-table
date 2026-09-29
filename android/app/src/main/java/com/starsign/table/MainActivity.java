@@ -42,7 +42,7 @@ import java.util.Locale;
 import javax.net.SocketFactory;
 
 /**
- * Star-Sign Table: the whole app runs inside this one screen, from files packed in the app.
+ * Aces & Eclipses Companion App (formerly the Star-Sign Table): the whole app runs inside this one screen, from files packed in the app.
  * No internet needed. The GM's phone can also host a table that other phones join over its
  * hotspot (TableServer); players with this app connect with LanClient.
  */

@@ -1,8 +1,10 @@
 # Licenses
 
-*Star-Sign Table* and the Star-Sign Card Engine © 2026 Estuswick. Star-Sign is an independent product. It isn't published, endorsed or approved by the publishers of the games it works with.
+*Aces & Eclipses Companion App* © 2026 Different Games. It's an independent product, not published, endorsed or approved by the publishers of the rules it builds on.
 
-## The 2.0 rules
+Aces & Eclipses and the Aces & Eclipses Compatibility Logo are trademarks of Different Games.
+
+## The Aces & Eclipses rules
 
 ### ORC Notice
 
@@ -15,21 +17,29 @@ This product is based on the following Licensed Material:
 - *Pathfinder Player Core* © 2023 Paizo Inc., Designed by Logan Bonner, Jason Bulmahn, Stephen Radney-MacFarland, and Mark Seifter. Authors: Alexander Augunas, Kate Baker, Logan Bonner, Jason Bulmahn, Carlos Cabrera, Calder CaDavid, James Case, Eleanor Ferron, Steven Hammond, Joan Hong, Vanessa Hoskins, James Jacobs, Jenny Jarzabski, Erik Keith, Dustin Knight, Lyz Liddell, Luis Loza, Patchen Mortimer, Dennis Muldoon, Stephen Radney-MacFarland, Mikhail Rekun, David N. Ross, Michael Sayre, Mark Seifter, Kendra Leigh Speedling, Mark Thompson, Clark Valentine, Andrew White, Landon Winkler, and Linda Zayas-Palmer.
 - *Pathfinder GM Core* © 2023 Paizo Inc., Designed by Logan Bonner and Mark Seifter. Authors: Amirali Attar Olyaee, Logan Bonner, Creighton Broadhurst, Jason Bulmahn, James Case, Jesse Decker, Eleanor Ferron, Fabby Garza Marroquín, Jaym Gates, Matthew Goetz, James Jacobs, Brian R. James, Jenny Jarzabski, Dustin Knight, Jason LeMaitre, Lyz Liddell, Luis Loza, Ron Lundeen, Stephen Radney-MacFarland, David N. Ross, Michael Sayre, Mark Seifter, Owen K.C. Stephens, Amber Stewart, Clark Valentine, Landon Winkler, and Linda Zayas-Palmer.
 
-To credit this product in your own work: *Star-Sign Card Engine* © 2026 Estuswick.
+To credit this product in your own work: *Aces & Eclipses Companion App* © 2026 Different Games.
 
 ### Reserved Material
 
-None. This product contains no Reserved Material.
+This product's Reserved Material is: the names Aces & Eclipses, Aces & Eclipses Core Rulebook, Aces & Eclipses Companion App, Star-Sign Card Engine, Core Engine, Written in the Stars, Star-Sign Table and Star-Sign Deck Lab; the Aces & Eclipses Compatibility Logo; all artwork, including the cover art, the sun-and-eclipse emblem and the zodiac ring; the trade dress, including the cover design and the page design and layout; and the text of the Aces & Eclipses Compatibility License.
 
 ### Expressly Designated Licensed Material
 
-Everything in this product that would otherwise be Reserved Material is offered as Licensed Material under the ORC License: the names Star-Sign Card Engine, Core Engine, Written in the Stars, Star-Sign Table, Star-Sign Deck Lab and Fate Deck; the Sun and the Eclipse; the twelve star-sign decks and their abilities; the wild magic effects and oddities, with their names and text; and the Star-Sign Table's icon and design.
+The following are Licensed Material under the ORC License, even where they would otherwise be Reserved Material: the Sun and the Eclipse; the Fate Deck; the twelve star-sign decks and their abilities, with their names; and the wild magic effects and oddities, with their names and text.
 
-## The d20 Classic rules
+### Compatibility License
+
+You may say your product is compatible with Aces & Eclipses, and show the Aces & Eclipses Compatibility Logo on it, under the Aces & Eclipses Compatibility License in Appendix D of the *Aces & Eclipses Core Rulebook*. It's free, and it covers only the name and the logo. It adds no terms to the ORC License: the rules in this product are open to use under the ORC License whether or not you use the Compatibility License.
+
+## d20 Classic compatibility
+
+### System Reference Document 5.2.1
 
 This work includes material from the System Reference Document 5.2.1 ("SRD 5.2.1") by Wizards of the Coast LLC, available at https://www.dndbeyond.com/srd. The SRD 5.2.1 is licensed under the Creative Commons Attribution 4.0 International License, available at https://creativecommons.org/licenses/by/4.0/legalcode.
 
 Compatible with fifth edition.
+
+### 3.5
 
 The 3.5 rules are referred to by their game mechanics only. No rules text is reproduced from any game, and no material released under the Open Game License is used.
 

@@ -1,7 +1,7 @@
 {
-  "name": "Star-Sign Table",
-  "short_name": "Star-Sign",
-  "description": "Build a balanced Star-Sign deck, draw from it at the table, and run the GM’s Fate Deck and wild magic.",
+  "name": "Aces & Eclipses Companion App",
+  "short_name": "A&E Companion",
+  "description": "The companion app for the Aces & Eclipses Core Rulebook: build a balanced star-sign deck, draw from it at the table, and run the GM’s Fate Deck and wild magic.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

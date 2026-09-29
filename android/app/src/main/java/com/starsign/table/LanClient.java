@@ -68,7 +68,7 @@ public class LanClient {
                 out.flush();
             }
             String head = readHead(in);
-            if (head == null || !head.startsWith("HTTP/1.1 101")) throw new IOException("This isn't a Star-Sign table.");
+            if (head == null || !head.startsWith("HTTP/1.1 101")) throw new IOException("This isn't an Aces & Eclipses table.");
             if (closed) return;
             listener.onOpen();
             ByteArrayOutputStream msg = new ByteArrayOutputStream();
