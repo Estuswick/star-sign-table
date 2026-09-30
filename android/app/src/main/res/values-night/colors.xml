@@ -3,5 +3,6 @@
     <!-- The same book by candlelight. -->
     <color name="page">#17110B</color>
     <color name="bar">#231910</color>
+    <color name="top">#1A2B52</color>
     <color name="rubric">#E27358</color>
 </resources>

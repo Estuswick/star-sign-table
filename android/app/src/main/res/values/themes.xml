@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Day: parchment, with dark status-bar icons. The page itself takes over the bar colours once it loads. -->
+    <!-- Day: parchment, with the lapis top bar and light status-bar icons. The page itself takes over the bar colours once it loads. -->
     <style name="Base.AppTheme" parent="@android:style/Theme.Material.Light.NoActionBar">
         <item name="android:windowBackground">@color/page</item>
         <item name="android:colorPrimary">@color/page</item>
-        <item name="android:colorPrimaryDark">@color/page</item>
+        <item name="android:colorPrimaryDark">@color/top</item>
         <item name="android:colorAccent">@color/rubric</item>
-        <item name="android:statusBarColor">@color/page</item>
+        <item name="android:statusBarColor">@color/top</item>
         <item name="android:navigationBarColor">@color/bar</item>
-        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightStatusBar">false</item>
     </style>
     <style name="AppTheme" parent="Base.AppTheme" />
 </resources>

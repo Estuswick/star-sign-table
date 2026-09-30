@@ -229,22 +229,32 @@ public class MainActivity extends Activity {
         return new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, new int[]{top, top, bottom, bottom});
     }
 
+    /** True for a pale colour, which needs dark icons on it. */
+    private static boolean isPale(int c) {
+        return (0.299 * Color.red(c) + 0.587 * Color.green(c) + 0.114 * Color.blue(c)) / 255.0 > 0.6;
+    }
+
+    /* Each bar picks its own icon colour: the status bar sits on the app's blue top bar,
+       the navigation bar on the page (parchment by day, dark by night). */
     @SuppressWarnings("deprecation")
     private void applyBars(int top, int bottom, boolean dark) {
         if (root != null) root.setBackground(barsBackground(top, bottom));
         getWindow().setStatusBarColor(top);
         getWindow().setNavigationBarColor(bottom);
+        boolean paleTop = isPale(top), paleBottom = isPale(bottom);
         if (Build.VERSION.SDK_INT >= 30) {
             WindowInsetsController c = getWindow().getInsetsController();
             if (c != null) {
-                int light = WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS | WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS;
-                c.setSystemBarsAppearance(dark ? 0 : light, light);
+                int flags = (paleTop ? WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS : 0)
+                        | (paleBottom ? WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS : 0);
+                c.setSystemBarsAppearance(flags, WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS | WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS);
             }
         } else {
             View d = getWindow().getDecorView();
-            int f = d.getSystemUiVisibility();
-            int light = View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR | (Build.VERSION.SDK_INT >= 26 ? View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR : 0);
-            d.setSystemUiVisibility(dark ? (f & ~light) : (f | light));
+            int f = d.getSystemUiVisibility() & ~(View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR | (Build.VERSION.SDK_INT >= 26 ? View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR : 0));
+            if (paleTop) f |= View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
+            if (paleBottom && Build.VERSION.SDK_INT >= 26) f |= View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
+            d.setSystemUiVisibility(f);
         }
     }
 

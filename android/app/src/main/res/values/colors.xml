@@ -3,5 +3,7 @@
     <!-- Page and parchment: the page behind the top bar, and the sheet behind the bottom tabs. -->
     <color name="page">#E9D9B4</color>
     <color name="bar">#F6ECD3</color>
+    <!-- The top bar's lapis blue, from the GM's Fate Deck. -->
+    <color name="top">#223865</color>
     <color name="rubric">#9B2A1A</color>
 </resources>

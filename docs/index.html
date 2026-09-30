@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <script>window.SST_HOST='web'</script>
 <link rel="manifest" href="manifest.webmanifest">
-<meta name="theme-color" content="#E9D9B4">
+<meta name="theme-color" content="#223865">
 <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <meta name="mobile-web-app-capable" content="yes">
@@ -108,8 +108,23 @@ button{cursor:pointer}
 [hidden]{display:none!important}
 
 /* ---------- shell ---------- */
-.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--paper), var(--bg);background-size:200px 200px, auto;
-  border-bottom:3px double var(--line);box-shadow:0 2px 10px rgba(60,35,10,.08)}
+/* The top bar wears the GM's lapis: the same blue leather as the Fate Deck's table. */
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;color:#F4E7C8;
+  background:radial-gradient(90% 140% at 50% 0%, rgba(170,200,255,.12), transparent 60%), var(--leather), linear-gradient(180deg, var(--lapis-2), var(--lapis));background-size:auto, 160px 160px, auto;
+  border-bottom:3px double rgba(221,184,102,.6);box-shadow:0 2px 12px rgba(7,13,30,.28)}
+.top .brand b{color:#F4E7C8}
+.top .brand span{color:var(--gilt)}
+.top .brand .mark{color:var(--gilt)}
+.top .brand .mark .g{color:#F6E3A8}
+.top .iconbtn{background:rgba(255,255,255,.06);border-color:rgba(221,184,102,.45);color:#E6DCC4}
+.top .iconbtn:hover{border-color:var(--gilt);color:#F6E3A8}
+.top .seg{background:rgba(0,0,0,.2);border-color:rgba(221,184,102,.38)}
+.top .seg button{color:#C8D2EA}
+.top .seg button[aria-checked="true"]{background:rgba(221,184,102,.16);color:#F6E3A8;box-shadow:inset 0 0 0 1px var(--gilt)}
+.top .toptabs button{color:#C8D2EA}
+.top .toptabs button:hover{color:#FFFFFF}
+.top .toptabs button[aria-current="page"]{color:#F6E3A8;box-shadow:inset 0 -2px 0 var(--gilt)}
+.top :focus-visible{outline-color:var(--gilt)}
 .top-in{max-width:1220px;margin:0 auto;padding:9px 16px;display:flex;align-items:center;gap:10px 16px;flex-wrap:wrap}
 .brand{display:flex;align-items:center;gap:10px;min-width:0;margin-right:auto}
 .brand .mark{width:34px;height:34px;flex:none;color:var(--accent)}
@@ -1837,7 +1852,7 @@ let barsKey = '';
 function syncBars(){
   const root = document.documentElement, cs = getComputedStyle(root);
   const dark = root.getAttribute('data-theme')==='dark' || (!root.hasAttribute('data-theme') && matchMedia('(prefers-color-scheme: dark)').matches);
-  const top = cs.getPropertyValue('--bg').trim(), bottom = (innerWidth >= 900 ? cs.getPropertyValue('--bg') : cs.getPropertyValue('--surface')).trim();
+  const top = cs.getPropertyValue('--lapis-2').trim(), bottom = (innerWidth >= 900 ? cs.getPropertyValue('--bg') : cs.getPropertyValue('--surface')).trim();
   const key = [top, bottom, dark].join('|'); if (key===barsKey || !top) return; barsKey = key;
   const meta = document.querySelector('meta[name="theme-color"]'); if (meta) meta.setAttribute('content', top);
   const N = window.StarSignNative;
