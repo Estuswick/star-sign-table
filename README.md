@@ -3,8 +3,8 @@
 The companion app for the *Aces & Eclipses Core Rulebook*, the fantasy roleplaying game played with cards instead of dice.
 
 - **Build** a balanced star-sign deck, step by step, with the Lab test.
-- **Play** it on your phone in place of paper cards: checks, fortune and misfortune, rerolls, spells, held draws, sign abilities, deck-outs and exhaustion.
-- **Run the game** as GM: the Fate Deck (100 cards, or 112 with the face cards when the table plays with wild magic), flat checks, wild magic with all 93 combinations (an optional rule, in Aces & Eclipses and in d20 Classic), and the damage deck.
+- **Play** it on your phone in place of paper cards: checks, fortune and misfortune, rerolls, spells, held draws, sign abilities, deck-outs and exhaustion. A mis-tapped check can be undone: its cards go back and the rest of the deck is reshuffled, so nobody sees their next card.
+- **Run the game** as GM: the Fate Deck (100 cards, or 112 with the face cards when the table plays with wild magic), flat checks, wild magic with all 93 combinations (an optional rule, in Aces & Eclipses and in d20 Classic, switched on or off on the Fate Deck page), and the damage deck. The GM's Draw panel has the same Undo.
 - **Read** the whole *Aces & Eclipses Core Rulebook*, searchable.
 
 It works with no internet once it's on your phone. A bonus mode, **d20 Classic compatibility** (off by default, under Settings), plays the same decks with fifth edition and 3.5 rules.

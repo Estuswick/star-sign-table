@@ -353,6 +353,12 @@ button.pcbtn:hover .pc{transform:translateY(-3px)}
 @media (max-width:560px){.setup{grid-template-columns:auto auto}.setup .types{grid-column:1 / -1}}
 .draw-main{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) minmax(0,1fr);gap:8px}
 .draw-main .btn{min-height:56px;font-size:18px}
+.undo-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:8px}
+.undo-row .btn{flex:none}
+.undo-row .note{flex:1 1 200px}
+.wmbar{display:flex;align-items:center;gap:14px;padding:10px 14px;border:1px solid var(--line);border-radius:var(--r);background:var(--surface)}
+.wmbar b{font-weight:600}
+.wmbar p{font-size:15.5px;color:var(--muted);font-style:italic}
 .draw-more{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
 @media (max-width:560px){.draw-main{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.draw-main .btn:first-child{grid-column:1 / -1}.draw-more{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .ability{display:flex;flex-direction:column;gap:10px}
@@ -1951,6 +1957,7 @@ function noteWild(){
 }
 function after(){
   if (S.tab==='gm') noteWild();
+  undoSettle();
   if (LIVE.role==='player'){ sendPresence(); lanSave(); }
   if (ui.scrollTable){ ui.scrollTable = false; const t = document.querySelector('.table'); if (t){ const r = t.getBoundingClientRect(), vh = window.innerHeight - (window.innerWidth<900 ? 80 : 0); if (r.top < 70 || r.bottom > vh) t.scrollIntoView({block:'nearest', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'}); } }
   if (S.tab==='build') scheduleFixes();
@@ -2003,6 +2010,7 @@ function viewPlay(){
       <button class="btn stack" data-act="draw" data-mode="fortune">${w.fortune}<small>3 cards, keep the best pair</small></button>
       <button class="btn stack" data-act="draw" data-mode="misfortune">${w.misfortune}<small>3 cards, keep the worst pair</small></button>
     </div>
+    ${undoRow('p:'+deck.id, 'undo-check', 'your deck')}
     ${pendingNote(deck, st)}
   </section>`;
   h += tableHTML(deck, st);
@@ -2211,7 +2219,7 @@ function logPanel(log){
   const rows = log.slice(0,25).map(e=>{
     const r = e.r || {};
     const t = new Date(e.t).toLocaleTimeString([], {hour:'numeric', minute:'2-digit'});
-    const names = {rest:W().rest, wake:'Woke up', encounter:'Encounter started', endencounter:'Encounter ended', grand:'The Grand Alignment'};
+    const names = {rest:W().rest, wake:'Woke up', encounter:'Encounter started', endencounter:'Encounter ended', grand:'The Grand Alignment', undo:'Check undone · deck reshuffled'};
     if (names[e.what]) return `<li><span class="what">${names[e.what]} <small>${t}</small></span><span class="res"></span></li>`;
     const j = r.total!=null ? P.judge(r, G(), S.sub) : null;
     const res = r.kind==='flat' ? (r.pass ? 'pass' : 'fail') : r.total!=null ? (r.nat===20?'nat 20':r.nat===1?'nat 1':r.total) + (j && j.label ? ' · '+j.label : '') : '';
@@ -2495,11 +2503,14 @@ function payPrice(d){
    GM
    ===================================================================== */
 function fate(){ let fs = S.fate[G()]; if (!fs) fs = S.fate[G()] = P.newFate(G(), wmOn()); return fs; }
+// Before a draw from the GM's Draw panel: keep the Fate Deck as it was, for Undo.
+function gmMark(){ const g = G(), snap = JSON.stringify(fate()); undoMark('f:'+g, snap, ()=>S.fate[g]); }
 const partyName = who => who || null;          // wild magic and draws store the character's name
 function viewGM(){
   const w = W(), fs = fate(), gi = S.gm.input;
   const types = [['attack','Attack'],['save','Save'],['skill','Skill'],['initiative', isP()?'Perception':'Initiative']];
-  let h = `<div class="view"><div class="vhead"><div><p class="eyebrow">For the GM · ${w.game}</p><h1>Fate Deck</h1></div><p>Draw for monsters, minions, ${isP()?'flat checks':'plain rolls'} and secret checks. ${wmOn() ? 'With wild magic, face cards drop into the wild magic sets by themselves and are replaced.' : 'Wild magic is off, so the Fate Deck has no face cards. It’s an optional rule: turn it on in Settings.'}</p></div>`;
+  let h = `<div class="view"><div class="vhead"><div><p class="eyebrow">For the GM · ${w.game}</p><h1>Fate Deck</h1></div><p>Draw for monsters, minions, ${isP()?'flat checks':'plain rolls'} and secret checks.</p></div>`;
+  h += `<div class="wmbar"><button type="button" class="switch" role="switch" aria-checked="${wmOn()}" data-act="set-wild" aria-labelledby="wmbar-l"></button><div><b id="wmbar-l">Wild magic</b><p>${wmOn() ? 'On: the 12 face cards are in the Fate Deck (112 cards). Each one drawn drops into the wild magic sets by itself and is replaced, so the odds are the same either way.' : 'Off: the Fate Deck is 100 cards. It’s an optional rule: switch it on to add the 12 face cards, which feed wild magic and never change a check.'}</p></div></div>`;
   h += '<div class="cols"><div class="col">';
   // the table: every character, live from their phones, from this device, or added by hand
   h += `<section class="panel" id="gm-table" aria-labelledby="party-h">${tablePanelInner()}</section>`;
@@ -2520,6 +2531,7 @@ function viewGM(){
       ${isP() ? `<button class="btn stack sm" data-act="glucky">Lucky number<small>Jokers redrawn</small></button>` : ''}
       <button class="btn stack sm" data-act="greset">Fresh shuffle<small>${wmOn() ? 'placed face cards stay' : 'all 100 cards'}</small></button>
     </div>
+    ${undoRow('f:'+G(), 'undo-gcheck', 'the Fate Deck')}
   </section>`;
   h += fateTable(fs);
   // flat checks
@@ -2613,6 +2625,7 @@ function effectsList(fs){
 }
 function gmLog(fs){
   const rows = fs.log.slice(0,25).map(e=>{ const r = e.r; const t = new Date(e.t).toLocaleTimeString([], {hour:'numeric', minute:'2-digit'});
+    if (e.undo) return `<li><span class="what">Check undone · Fate Deck reshuffled <small>${t}</small></span><span class="res"></span></li>`;
     const j = r.total!=null && r.kind==='check' ? P.judge(r, G(), S.sub) : null;
     const res = r.kind==='flat' ? (r.pass?'pass':'fail') : r.total!=null ? (r.nat===20?'nat 20':r.nat===1?'nat 1':r.total) + (j&&j.label?' · '+j.label:'') : '';
     return `<li><span class="what">${gmLabel(r)} <small>${t}</small></span><span class="res">${esc(res)}</span><span style="grid-column:1/-1">${mini(r.cards||[])}</span></li>`; }).join('');
@@ -3100,7 +3113,6 @@ function openSettings(){
     <div class="sh"><h2 id="set-h">Settings</h2><button class="iconbtn" data-act="close-settings" aria-label="Close">✕</button></div>
     <div>
       ${sw('set-abilities', S.abilities, 'Sign abilities', 'A table that plays without them agrees at session zero. Sign decks then get their price back with a flip or two.', !isP())}
-      ${sw('set-wild', wmOn(), 'Wild magic', `An optional rule: the 12 face cards join the GM’s Fate Deck (112 cards) and feed wild magic. Off, the Fate Deck is 100 cards. Face cards never change a check, so the odds are the same either way.${S.compat ? ` This switch is for ${isP() ? 'Aces &amp; Eclipses' : 'd20 Classic'}; each game has its own.` : ''}`)}
       ${sw('set-counts', S.settings.counts, 'Show what’s left in my deck', 'Off by default: in the books, discard piles are face-down and card counting takes memory.')}
       ${sw('set-wake', S.settings.wake, 'Keep the screen on while playing', 'Asks your phone not to dim during a session. Some devices say no.')}
       <div class="opt"><div><b>Theme</b><p>Follows your device unless you choose.</p></div><div class="seg" role="radiogroup" aria-label="Theme">${[['system','Auto'],['light','Light'],['dark','Dark']].map(([k,l])=>`<button type="button" role="radio" aria-checked="${S.settings.theme===k}" data-act="set-theme" data-v="${k}">${l}</button>`).join('')}</div></div>
@@ -3182,6 +3194,19 @@ document.addEventListener('visibilitychange', ()=>{ if (document.visibilityState
 function withDeck(fn){ const d = activeDeck(); if (!d) return; const st = pstate(d); fn(d, st); }
 function inputs(st){ return {type:st.input.type, mod:+st.input.mods[st.input.type]||0, dc: st.input.dc===''||st.input.dc==null ? '' : +st.input.dc}; }
 function dealt(){ ui.fresh = true; ui.pick = null; ui.scrollTable = true; keepAwake(); }
+/* Undo: one step back for the last check drawn with a Draw panel's buttons. The state from just before
+   the check comes back, so its cards return to the deck, and then whatever is left in the deck is
+   reshuffled, so nobody can see their next card and keep it or throw it away. Undo stays available
+   only while nothing else has changed that deck since (changing the modifier or DC doesn't count). */
+const UNDO = {};   // 'p:<deck id>' or 'f:<game>' -> {snap, after, get}
+const undoSig = o => { if (!o) return ''; const {input, ...rest} = o; return JSON.stringify(rest); };
+function undoMark(key, snap, get){ UNDO[key] = {snap, after:null, get}; }
+function undoSettle(){ for (const u of Object.values(UNDO)) if (u.after===null) u.after = undoSig(u.get()); }
+function undoOK(key){ const u = UNDO[key]; if (!u) return false; const o = u.get(); return !!o && (u.after===null || u.after===undoSig(o)); }
+function undoRow(key, act, what){
+  const ok = undoOK(key);
+  return `<div class="undo-row"><button class="btn sm" data-act="${act}" ${ok ? '' : 'disabled'} aria-label="Undo the last check">↶ Undo</button><span class="note">${ok ? `Takes back the last check: its cards go back and ${what} is reshuffled.` : `Undo takes back the last check drawn here, then reshuffles ${what}.`}</span></div>`;
+}
 
 const ACT = {
   tab(el){ S.tab = el.dataset.tab; ui.pick = null; ui.confirm = null; render(); $('view').focus({preventScroll:true}); window.scrollTo(0,0); },
@@ -3190,7 +3215,15 @@ const ACT = {
   mod(el){ withDeck((d,st)=>{ const t = st.input.type; st.input.mods[t] = (+st.input.mods[t]||0) + (+el.dataset.d); }); render(); },
   hero(el){ withDeck((d,st)=>{ const n = +el.dataset.n; st.hero = st.hero===n ? n-1 : n; }); render(); },
   insp(){ withDeck((d,st)=>{ st.inspiration = !st.inspiration; }); render(); },
-  draw(el){ withDeck((d,st)=>{ const o = inputs(st); P.check(st, Object.assign(o, {mode:el.dataset.mode}), abOn()); dealt(); }); render(); },
+  draw(el){ withDeck((d,st)=>{ const snap = JSON.stringify(st); const o = inputs(st); P.check(st, Object.assign(o, {mode:el.dataset.mode}), abOn()); undoMark('p:'+d.id, snap, ()=>S.play[d.id]); dealt(); }); render(); },
+  'undo-check'(){
+    const d = activeDeck(); if (!d) return; const k = 'p:'+d.id; if (!undoOK(k)) return;
+    const st = S.play[d.id], old = JSON.parse(UNDO[k].snap); delete UNDO[k];
+    old.input = st.input; P.shuffle(old.draw);
+    old.log.unshift({what:'undo', t:Date.now(), day:old.day}); if (old.log.length>80) old.log.length = 80;
+    S.play[d.id] = old; ui.pick = null; ui.fresh = false; ui.glimpse = null; ui.twinSel = null;
+    render(); toast('Check undone: its cards went back and your deck was reshuffled');
+  },
   loose(el){ withDeck((d,st)=>{ P.resolveLoose(st, el.dataset.swap==='1', abOn()); dealt(); }); render(); },
   hold(){ withDeck((d,st)=>{ P.hold(st, 'normal', abOn()); ui.pick = null; toast('Held draw set aside'); }); render(); },
   burn(el){ withDeck((d,st)=>{ P.burn(st, +el.dataset.n, el.dataset.kind, el.dataset.label, abOn()); dealt(); }); render(); },
@@ -3291,13 +3324,21 @@ const ACT = {
   'wild-lvl'(el){ const fs = fate(); if (!fs.wild) return; fs.wild.level = Math.max(1, Math.min(20, (fs.wild.level || memberLevel(fs.wild.destined) || 1) + (+el.dataset.d))); render(); },
   'wild-dismiss'(){ ui.wildNote = null; render(); },
   'wild-apply'(){ const wn = ui.wildNote, a = wn && wildApply(wn.n); if (!a) return; withDeck((d,st)=>{ a.fn(st, abOn()); }); ui.wildNote = null; render(); toast('Applied to your deck'); },
-  gdraw(el){ ui.scrollTable = true; const gi = S.gm.input; P.fateCheck(fate(), {type:gi.type, mode:el.dataset.mode, mod:+gi.mod||0, dc: gi.dc===''?'':+gi.dc, who: wmOn() ? S.gm.who : null}); ui.gmFresh = true; render(); },
-  gsecret(){ const gi = S.gm.input; P.fateCheck(fate(), {type:'skill', mode:'normal', mod:+gi.mod||0, dc: gi.dc===''?'':+gi.dc, who: wmOn() ? S.gm.who : null, label:'Secret check'}); ui.gmFresh = true; render(); },
-  glucky(){ P.luckyNumber(fate(), wmOn() ? S.gm.who : null); ui.gmFresh = true; render(); },
+  gdraw(el){ ui.scrollTable = true; const gi = S.gm.input; gmMark(); P.fateCheck(fate(), {type:gi.type, mode:el.dataset.mode, mod:+gi.mod||0, dc: gi.dc===''?'':+gi.dc, who: wmOn() ? S.gm.who : null}); ui.gmFresh = true; render(); },
+  gsecret(){ const gi = S.gm.input; gmMark(); P.fateCheck(fate(), {type:'skill', mode:'normal', mod:+gi.mod||0, dc: gi.dc===''?'':+gi.dc, who: wmOn() ? S.gm.who : null, label:'Secret check'}); ui.gmFresh = true; render(); },
+  glucky(){ gmMark(); P.luckyNumber(fate(), wmOn() ? S.gm.who : null); ui.gmFresh = true; render(); },
   greroll(el){ P.fateReroll(fate(), el.dataset.how, wmOn() ? S.gm.who : null); ui.gmFresh = true; render(); },
   gflat(el){ P.flatCheck(fate(), S.gm.flatDc, {mode:el.dataset.mode, who: wmOn() ? S.gm.who : null, label: W().flat}); ui.gmFresh = true; render(); },
   grecovery(){ const r = P.flatCheck(fate(), 10 + S.gm.dying, {mode:'normal', who: S.gm.who, label:'Recovery check', type:'flat'}); r.recovery = true; ui.gmFresh = true; render(); },
   gdeath(){ const r = P.flatCheck(fate(), 10, {mode:'normal', who:null, label:'Death saving throw', type:'flat'}); r.death = true; ui.gmFresh = true; render(); },
+  'undo-gcheck'(){
+    const g = G(), k = 'f:'+g; if (!undoOK(k)) return;
+    const old = JSON.parse(UNDO[k].snap); delete UNDO[k];
+    P.shuffle(old.draw);
+    old.log.unshift({t:Date.now(), undo:true}); if (old.log.length>80) old.log.length = 80;
+    S.fate[g] = old; ui.gmFresh = false; ui.oddity = null; ui.fglimpse = null;
+    render(); toast('Check undone: its cards went back and the Fate Deck was reshuffled');
+  },
   greset(){ const fs = fate(); const keep = fs.sets; const fresh = P.newFate(G(), wmOn()); if (keep.length){ const ids = new Set(keep.map(x=>x.card.r+x.card.s)); fresh.draw = fresh.draw.filter(c=>!ids.has(c.r+c.s)); } fresh.sets = keep; fresh.wild = fs.wild; fresh.log = fs.log; S.fate[G()] = fresh; render(); toast('Fate Deck shuffled'); },
   'fg-show'(){ const fs = fate(); ui.fglimpse = fs.draw.slice(-3).reverse(); render(); },
   'fg-move'(el){ const i = +el.dataset.i, j = i + (+el.dataset.d); if (ui.fglimpse && j>=0 && j<ui.fglimpse.length){ [ui.fglimpse[i], ui.fglimpse[j]] = [ui.fglimpse[j], ui.fglimpse[i]]; } render(); },
@@ -3327,7 +3368,7 @@ const ACT = {
   toc(el, ev){ ev.preventDefault(); const t = $(el.dataset.id); if (t) t.scrollIntoView({behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block:'start'}); },
   // --- settings
   'close-settings'(el, ev){ if (ev.target.closest('[data-stop]') && !ev.target.closest('.iconbtn')) return; closeSettings(); },
-  'set-wild'(){ S.wild = S.wild || {ae:true, classic:false}; S.wild[G()] = !S.wild[G()]; P.fateUpgrade(fate(), S.wild[G()]); ui.oddity = null; ui.fglimpse = null; openSettings(); render(); toast(S.wild[G()] ? 'Wild magic on: the 12 face cards are in the Fate Deck' : 'Wild magic off: the face cards are out of the Fate Deck'); },
+  'set-wild'(){ S.wild = S.wild || {ae:true, classic:false}; S.wild[G()] = !S.wild[G()]; P.fateUpgrade(fate(), S.wild[G()]); ui.oddity = null; ui.fglimpse = null; render(); toast(S.wild[G()] ? 'Wild magic on: the 12 face cards are in the Fate Deck' : 'Wild magic off: the face cards are out of the Fate Deck'); },
   'set-abilities'(){ if (!isP()) return; S.abilities = !S.abilities; S.draft.ae = null; ui.fixes = null; openSettings(); render(); toast(S.abilities ? 'Sign abilities on' : 'Sign abilities off'); },
   'set-sub'(el){ S.sub = el.dataset.v; openSettings(); render(); },
   'set-compat'(){ S.compat = !S.compat;
