@@ -335,6 +335,29 @@ button.pcbtn:hover .pc{transform:translateY(-3px)}
 .deckbar .who span{font-size:15.5px;color:var(--muted);font-style:italic}
 .status{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;box-shadow:var(--shadow);outline:1px solid var(--line-2);outline-offset:3px}
 .status small.narrow{display:none}
+.sheetp .attrs{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+@media (max-width:640px){.sheetp .attrs{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.attr{background:var(--paper), var(--surface);background-size:200px 200px, auto;padding:8px 10px;display:flex;flex-direction:column;gap:4px;min-width:0}
+.attr.primary{box-shadow:inset 0 0 0 2px color-mix(in srgb, var(--accent) 55%, transparent)}
+.attr .k{font-family:var(--sc);font-size:15px;color:var(--muted);letter-spacing:.05em}
+.attr .av{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.ascore{width:52px;padding:3px 4px;border:1px solid var(--line);border-radius:var(--r);background:var(--hi);color:var(--ink);font-family:var(--mono);font-size:18px;text-align:center;-moz-appearance:textfield}
+.ascore::-webkit-inner-spin-button,.ascore::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+.ascore:focus{border-color:var(--accent);outline:none;box-shadow:0 0 0 2px color-mix(in srgb, var(--accent) 22%, transparent)}
+.attr .amod{font-family:var(--mono);font-size:21px;font-weight:500;font-variant-numeric:tabular-nums}
+.attr .picks{display:flex;flex-wrap:wrap;gap:2px 10px}
+.tick{display:inline-flex;align-items:center;gap:6px;background:none;border:0;padding:2px 0;font-family:var(--ui);font-size:14px;color:var(--muted);cursor:pointer}
+.tick .box{width:17px;height:17px;border:1.5px solid var(--line);border-radius:3px;background:var(--hi);display:inline-grid;place-items:center;flex:none}
+.tick[aria-checked="true"]{color:var(--accent)}
+.tick[aria-checked="true"] .box{background:var(--accent);border-color:var(--accent)}
+.tick[aria-checked="true"] .box::after{content:"";width:9px;height:5px;border-left:2px solid var(--surface);border-bottom:2px solid var(--surface);transform:translateY(-1px) rotate(-45deg)}
+.sheetres{display:flex;flex-wrap:wrap;gap:6px}
+.sheetres .chip b{font-family:var(--mono);font-weight:500}
+.sheetres.off{opacity:.55}
+.sheetp[open] > summary small{display:none}
+.profgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-top:10px;align-items:end}
+.srcline{font-family:var(--ui);font-size:13px;color:var(--muted);line-height:1.35}
+.linkbtn{background:none;border:0;padding:0;font:inherit;color:var(--accent);text-decoration:underline;cursor:pointer}
 .narrowonly{display:none}
 @media (max-width:480px){.status{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (max-width:640px){.status > div{padding:6px 10px;gap:1px}.status .k{font-size:14px;letter-spacing:.03em}.status .v{font-size:19px;gap:4px}.status .wide{display:none}.status small.narrow{display:inline}.pips{gap:4px}.pips button{width:18px;height:18px}
@@ -1829,6 +1852,90 @@ const wmOn = () => !!(S.wild && S.wild[G()]);   // wild magic, an optional rule 
 // a wild magic row's name and effect in the game being played
 const wmName = r => isP() || !WILD.C ? r[6] : WILD.C[r[0]-1][0];
 const wmText = r => isP() || !WILD.C ? r[7] : WILD.C[r[0]-1][1];
+
+/* ---------- the character sheet: attributes on the Play page ----------
+   Scores convert the traditional way: 10–11 is +0, and every 2 points up or down is +1 or −1.
+   With "Fill in my modifiers" on (it turns on as soon as a score is entered), the Draw panel's
+   attack, Perception (initiative in d20 Classic) and save modifiers come from the sheet. The
+   stepper there adjusts them for the moment, without changing the sheet. Saved with the deck. */
+const ATTRS = [['str','Strength','Str'],['dex','Dexterity','Dex'],['con','Constitution','Con'],['int','Intelligence','Int'],['wis','Wisdom','Wis'],['cha','Charisma','Cha']];
+const ATTR_AB = Object.fromEntries(ATTRS.map(a=>[a[0], a[2]]));
+const RANKS = [['u','Untrained',0],['t','Trained',2],['e','Expert',4],['m','Master',6],['l','Legendary',8]];
+const SAVES3 = [['fort','Fortitude','con'],['ref','Reflex','dex'],['will','Will','wis']];
+const attrMod = sc => Math.floor(((Number.isFinite(+sc) ? +sc : 10) - 10) / 2);
+const profBonus5 = lvl => 2 + Math.floor((Math.max(1, Math.min(20, lvl||1)) - 1) / 4);
+function sheetOf(deck){
+  const a = deck.attrs = deck.attrs || {};
+  if (typeof a.on!=='boolean') a.on = false;
+  a.s = Object.assign({str:10, dex:10, con:10, int:10, wis:10, cha:10}, a.s || {});
+  if (!ATTR_AB[a.atk]) a.atk = 'str';
+  a.bonus = +a.bonus || 0;
+  a.ae = Object.assign({atk:'t', per:'t', fort:'t', ref:'t', will:'t'}, a.ae || {});
+  a.fifth = Object.assign({atk:true}, a.fifth || {}); a.fifth.saves = a.fifth.saves || {};
+  a.t35 = Object.assign({bab:0, fort:0, ref:0, will:0}, a.t35 || {});
+  return a;
+}
+const is5 = () => !isP() && S.sub!=='35';
+// The saves the Draw panel offers: Fortitude, Reflex and Will, or the six saving throws in fifth edition.
+const saveList = () => is5() ? ATTRS.map(([k,n,ab])=>[k, ab, n+' save']) : SAVES3.map(([k,n])=>[k, n, n]);
+// A modifier from the sheet ('attack', 'initiative' or 'save:<key>'), with the parts it's made of. force: work it out even when the sheet is off.
+function sheetMod(deck, key, force){
+  const a = deck && deck.attrs; if (!a || (!a.on && !force)) return null;
+  sheetOf(deck);
+  const lvl = deck.level || 1, m = k => attrMod(a.s[k]), parts = [], add = (l, v) => parts.push([l, v]);
+  const prof = r => { const x = RANKS.find(q=>q[0]===r) || RANKS[1]; add(x[1], x[0]==='u' ? 0 : lvl + x[2]); };
+  if (isP()){
+    if (key==='attack'){ add(ATTR_AB[a.atk], m(a.atk)); prof(a.ae.atk); }
+    else if (key==='initiative'){ add('Wis', m('wis')); prof(a.ae.per); }
+    else if (key.startsWith('save:')){ const v = SAVES3.find(q=>q[0]===key.slice(5)); if (!v) return null; add(ATTR_AB[v[2]], m(v[2])); prof(a.ae[v[0]]); }
+    else return null;
+  } else if (S.sub==='35'){
+    if (key==='attack'){ add(ATTR_AB[a.atk], m(a.atk)); add('base attack', +a.t35.bab||0); }
+    else if (key==='initiative') add('Dex', m('dex'));
+    else if (key.startsWith('save:')){ const v = SAVES3.find(q=>q[0]===key.slice(5)); if (!v) return null; add(ATTR_AB[v[2]], m(v[2])); add('base save', +a.t35[v[0]]||0); }
+    else return null;
+  } else {
+    const pb = profBonus5(lvl);
+    if (key==='attack'){ add(ATTR_AB[a.atk], m(a.atk)); if (a.fifth.atk) add('proficiency', pb); }
+    else if (key==='initiative') add('Dex', m('dex'));
+    else if (key.startsWith('save:')){ const k = key.slice(5); if (!ATTR_AB[k]) return null; add(ATTR_AB[k], m(k)); if (a.fifth.saves[k]) add('proficiency', pb); }
+    else return null;
+  }
+  if (key==='attack' && +a.bonus) add('bonus', +a.bonus);
+  return {total: parts.reduce((x,p)=>x+p[1], 0), parts};
+}
+const partsText = sm => sm.parts.map(([l,v])=>`${l} ${signed(v)}`).join(' · ');
+const saveKey = st => { const list = saveList(); return list.some(x=>x[0]===st.input.save) ? st.input.save : list[0][0]; };
+const modKey = st => { const t = st.input.type; return t==='attack' ? 'attack' : t==='initiative' ? 'initiative' : t==='save' ? 'save:'+saveKey(st) : null; };
+// The modifier the Draw panel uses: from the sheet (plus the moment's adjustment), or typed by hand.
+function curMod(deck, st){
+  const key = modKey(st), sm = key && deck ? sheetMod(deck, key) : null;
+  if (sm){ const adj = +((st.input.adj||{})[key]) || 0; return {mod: sm.total + adj, sm, key, adj}; }
+  return {mod: +st.input.mods[st.input.type] || 0, sm:null, key, adj:0};
+}
+function sheetPanel(deck){
+  const a = sheetOf(deck), f5 = is5(), t35 = !isP() && S.sub==='35';
+  const cells = ATTRS.map(([k,name,ab])=>`<div class="attr${a.atk===k ? ' primary' : ''}"><label class="k" for="attr-${k}">${ab}</label>
+      <span class="av"><input id="attr-${k}" class="ascore" type="number" inputmode="numeric" min="1" max="30" value="${esc(a.s[k])}" data-bind="attr" data-k="${k}" aria-label="${name} score"><b class="amod" title="${name} modifier">${signed(attrMod(a.s[k]))}</b></span>
+      <span class="picks"><button type="button" class="tick" role="radio" aria-checked="${a.atk===k}" data-act="attr-atk" data-k="${k}" aria-label="${name} for attacks"><span class="box" aria-hidden="true"></span>Attack</button>${f5 ? `<button type="button" class="tick" role="checkbox" aria-checked="${!!a.fifth.saves[k]}" data-act="attr-save5" data-k="${k}" aria-label="Proficient in ${name} saves"><span class="box" aria-hidden="true"></span>Save</button>` : ''}</span></div>`).join('');
+  const res = [['attack','Attack'], ['initiative', isP() ? 'Perception' : 'Initiative'], ...saveList().map(([k,ab,n])=>['save:'+k, f5 ? ab+' save' : n])];
+  const vals = res.map(([key,l])=>{ const sm = sheetMod(deck, key, true); return [l, sm ? sm.total : 0]; });
+  const summary = vals.map(([l,v])=>`${l} ${signed(v)}`).join(' · ');
+  const sel = (k, label) => `<div class="field"><label for="prof-${k}">${label} · <b>${signed(sheetMod(deck, k==='atk' ? 'attack' : k==='per' ? 'initiative' : 'save:'+k, true).total)}</b></label><select id="prof-${k}" class="input" data-bind="prof" data-k="${k}">${RANKS.map(([v,n])=>`<option value="${v}" ${a.ae[k]===v ? 'selected' : ''}>${n}</option>`).join('')}</select></div>`;
+  const kst = (k, val, label) => `<div class="field"><span>${label}</span><div class="stepper" role="group" aria-label="${esc(label)}"><button type="button" data-act="sheet-num" data-k="${k}" data-d="-1" aria-label="Lower ${esc(label)}">−</button><input id="sheet-${k}" class="mono" type="number" inputmode="numeric" value="${esc(val)}" data-bind="sheet-num" data-k="${k}" aria-label="${esc(label)}"><button type="button" data-act="sheet-num" data-k="${k}" data-d="1" aria-label="Raise ${esc(label)}">+</button></div></div>`;
+  let prof = '';
+  if (isP()) prof = kst('level', deck.level||1, 'Character level') + sel('atk','Attack') + sel('per','Perception') + sel('fort','Fortitude') + sel('ref','Reflex') + sel('will','Will') + kst('bonus', a.bonus, 'Other attack bonus');
+  else if (f5) prof = kst('level', deck.level||1, 'Character level') + `<div class="field"><span>Proficiency bonus</span><b class="mono" style="font-size:19px;padding:5px 0">${signed(profBonus5(deck.level||1))}</b></div><div class="field"><span>Attacks</span><button type="button" class="tick" role="checkbox" aria-checked="${!!a.fifth.atk}" data-act="attr-atk5" style="padding:6px 0"><span class="box" aria-hidden="true"></span>Proficient</button></div>` + kst('bonus', a.bonus, 'Other attack bonus');
+  else prof = kst('bab', a.t35.bab, 'Base attack bonus') + kst('fort', a.t35.fort, 'Base Fortitude save') + kst('ref', a.t35.ref, 'Base Reflex save') + kst('will', a.t35.will, 'Base Will save') + kst('bonus', a.bonus, 'Other attack bonus');
+  const profSum = isP() ? `Level ${deck.level||1} · attack ${(RANKS.find(q=>q[0]===a.ae.atk)||RANKS[1])[1].toLowerCase()}` : f5 ? `Level ${deck.level||1} · proficiency ${signed(profBonus5(deck.level||1))}` : `Base attack ${signed(+a.t35.bab||0)}`;
+  return `<details class="panel sheetp" ${det('play-attrs', true)}><summary>Attributes<small>${a.on ? esc(summary) : 'Enter your scores to fill in your modifiers'}</small></summary>
+    <div class="view" style="gap:12px">
+      <div class="attrs" role="group" aria-label="Attribute scores">${cells}</div>
+      <div class="sheetres${a.on ? '' : ' off'}" aria-label="Modifiers from your attributes">${vals.map(([l,v])=>`<span class="chip">${esc(l)} <b>${signed(v)}</b></span>`).join('')}</div>
+      <details ${det('play-prof', false)}><summary class="small" style="cursor:pointer">${isP() || f5 ? 'Level and proficiency' : 'Base attack and saves'} <span class="muted">· ${esc(profSum)}</span></summary><div class="profgrid">${prof}</div></details>
+      <div class="opt" style="padding:4px 0 0;border:0"><div><b>Fill in my modifiers</b><p>${a.on ? `Attack, ${isP() ? 'Perception' : 'initiative'} and saves on the Draw panel come from these; adjust them there for the moment. Skill checks stay typed by hand.` : 'Off: every modifier on the Draw panel is typed by hand. Entering a score turns this on.'} A score of 10–11 is +0; every 2 points up or down is +1 or −1.</p></div><button type="button" class="switch" role="switch" aria-checked="${!!a.on}" data-act="sheet-on" aria-label="Fill in my modifiers"></button></div>
+    </div></details>`;
+}
 const syncLab = () => { L.state.game = S.game; L.state.abilities = isP() && S.abilities; };
 const abOn = () => isP() && S.abilities;
 
@@ -2018,17 +2125,21 @@ function viewPlay(){
     ${heroCell}
     <div><span class="k">Encounter</span><span class="v">${st.inEncounter ? `<span class="small" style="font-family:var(--ui)">In one</span><button class="chip" data-act="end-enc" aria-label="In an encounter. Tap to end it.">End</button>` : `<button class="chip" data-act="start-enc" aria-label="Not in an encounter. Tap to start one.">Start</button>`}</span></div>
   </div>`;
+  h += sheetPanel(deck);
   if (lvl>=3 && lvl<4) h += `<div class="banner exh"><p><b>${w.lvl(3)}.</b> You’re ${w.lvl3}, and your checks take −6. Your next deck-out is a collapse.</p></div>`;
   h += wildBanner(deck);
   if (st.collapsed) h += `<div class="banner bad"><p><b>${w.lvl(4)}: you collapsed.</b> You fall unconscious. After 10 minutes of rest you wake up at ${w.lvl(3)}.</p><button class="btn sm primary" data-act="wake">Wake up after 10 minutes</button></div>`;
 
   h += '<div class="cols"><div class="col">';
   // setup + draw
-  const modLabel = {attack:'Attack modifier', save:'Save modifier', skill:'Skill modifier', initiative: isP() ? 'Perception modifier' : 'Initiative modifier'}[inp.type];
+  const cm = curMod(deck, st), sv = cm.sm && inp.type==='save' ? saveList().find(x=>x[0]===saveKey(st)) : null;
+  const modLabel = sv ? `${sv[2]} modifier` : {attack:'Attack modifier', save:'Save modifier', skill:'Skill modifier', initiative: isP() ? 'Perception modifier' : 'Initiative modifier'}[inp.type];
+  const savePick = inp.type==='save' && deck.attrs && deck.attrs.on ? `<div class="field"><span>Which save?</span><div class="chips" role="group" aria-label="Which save">${saveList().map(([k,ab,n])=>`<button type="button" class="chip" data-act="psave" data-k="${k}" aria-pressed="${saveKey(st)===k}">${esc(is5() ? ab : n)}</button>`).join('')}</div></div>` : '';
   h += `<section class="panel" aria-labelledby="draw-h"><div class="panel-h"><h2 id="draw-h">Draw</h2><span class="hint">${isP() ? 'Two cards, added together' : 'Two cards replace the d20 · only the Sun crits'}</span></div>
     <div class="setup">
       <div class="field types"><span>What’s the check?</span><div class="chips" role="group" aria-label="Check type">${typeChips.map(([k,l])=>`<button type="button" class="chip" data-act="type" data-type="${k}" aria-pressed="${inp.type===k}">${l}</button>`).join('')}</div></div>
-      <div class="field"><span>${modLabel}</span>${stepper('p-mod', inp.mods[inp.type]||0, 'mod', modLabel)}</div>
+      ${savePick}
+      <div class="field"><span>${modLabel}</span>${stepper('p-mod', cm.mod, 'mod', modLabel)}${cm.sm ? `<span class="srcline">${esc(partsText(cm.sm))}${cm.adj ? ` · adjusted ${signed(cm.adj)} · <button type="button" class="linkbtn" data-act="mod-reset">Reset</button>` : ''}</span>` : ''}</div>
       <div class="field"><label for="p-dc">${inp.type==='attack' ? 'Target AC' : 'DC'} <span class="muted">(optional)</span></label><input id="p-dc" class="input mono" style="width:92px" type="number" inputmode="numeric" placeholder="—" value="${esc(inp.dc)}" data-bind="dc"></div>
     </div>
     <div class="draw-main">
@@ -3245,7 +3356,12 @@ async function keepAwake(){
 document.addEventListener('visibilitychange', ()=>{ if (document.visibilityState==='visible' && wakeLock===null && S && S.tab==='play') keepAwake(); });
 
 function withDeck(fn){ const d = activeDeck(); if (!d) return; const st = pstate(d); fn(d, st); }
-function inputs(st){ return {type:st.input.type, mod:+st.input.mods[st.input.type]||0, dc: st.input.dc===''||st.input.dc==null ? '' : +st.input.dc}; }
+function inputs(st){
+  const d = activeDeck(), c = curMod(d, st);
+  const o = {type:st.input.type, mod:c.mod, dc: st.input.dc===''||st.input.dc==null ? '' : +st.input.dc};
+  if (c.sm && st.input.type==='save'){ const v = saveList().find(x=>x[0]===saveKey(st)); if (v) o.label = is5() ? v[2].replace(' save','') : v[1]; }
+  return o;
+}
 /* Drop-downs (<details>) keep the open or closed state you leave them in, through every redraw and the
    next time the app opens. Each has a name (data-dk); opening or closing one is saved on this device.
    det(name, open by default?) gives a drop-down its name and its state. */
@@ -3269,7 +3385,14 @@ const ACT = {
   tab(el){ S.tab = el.dataset.tab; ui.pick = null; ui.confirm = null; render(); $('view').focus({preventScroll:true}); window.scrollTo(0,0); },
   // --- play: setup
   type(el){ withDeck((d,st)=>{ st.input.type = el.dataset.type; }); render(); },
-  mod(el){ withDeck((d,st)=>{ const t = st.input.type; st.input.mods[t] = (+st.input.mods[t]||0) + (+el.dataset.d); }); render(); },
+  mod(el){ withDeck((d,st)=>{ const c = curMod(d, st); if (c.sm){ st.input.adj = st.input.adj || {}; st.input.adj[c.key] = c.adj + (+el.dataset.d); return; } const t = st.input.type; st.input.mods[t] = (+st.input.mods[t]||0) + (+el.dataset.d); }); render(); },
+  'mod-reset'(){ withDeck((d,st)=>{ const c = curMod(d, st); if (st.input.adj) st.input.adj[c.key] = 0; }); render(); },
+  psave(el){ withDeck((d,st)=>{ st.input.save = el.dataset.k; }); render(); },
+  'sheet-on'(){ const d = activeDeck(); if (!d) return; const a = sheetOf(d); a.on = !a.on; render(); toast(a.on ? 'Modifiers now come from your attributes' : 'Modifiers are typed by hand again'); },
+  'attr-atk'(el){ const d = activeDeck(); if (!d) return; const a = sheetOf(d); a.atk = el.dataset.k; a.on = true; render(); },
+  'attr-save5'(el){ const d = activeDeck(); if (!d) return; const a = sheetOf(d); a.fifth.saves[el.dataset.k] = !a.fifth.saves[el.dataset.k]; a.on = true; render(); },
+  'attr-atk5'(){ const d = activeDeck(); if (!d) return; const a = sheetOf(d); a.fifth.atk = !a.fifth.atk; a.on = true; render(); },
+  'sheet-num'(el){ const d = activeDeck(); if (!d) return; sheetNum(d, el.dataset.k, null, +el.dataset.d); render(); },
   hero(el){ withDeck((d,st)=>{ const n = +el.dataset.n; st.hero = st.hero===n ? n-1 : n; }); render(); },
   insp(){ withDeck((d,st)=>{ st.inspiration = !st.inspiration; }); render(); },
   draw(el){ withDeck((d,st)=>{ const snap = JSON.stringify(st); const o = inputs(st); P.check(st, Object.assign(o, {mode:el.dataset.mode}), abOn()); undoMark('p:'+d.id, snap, ()=>S.play[d.id]); dealt(); }); render(); },
@@ -3445,8 +3568,22 @@ const ACT = {
 };
 
 /* input bindings (typing without re-rendering on every key) */
+// A number on the sheet: the character level, the attack bonus, or a 3.5 base attack or save.
+function sheetNum(d, k, val, step){
+  const a = sheetOf(d), clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+  const get = () => k==='level' ? (d.level||1) : k==='bonus' ? a.bonus : (+a.t35[k]||0);
+  const v = val!=null ? val : get() + step;
+  if (!Number.isFinite(v)) return;
+  if (k==='level') d.level = clamp(v, 1, 20);
+  else if (k==='bonus') a.bonus = clamp(v, -20, 30);
+  else a.t35[k] = clamp(v, -5, 30);
+  a.on = true;
+}
 const BIND = {
-  mod(el){ withDeck((d,st)=>{ st.input.mods[st.input.type] = el.value===''||el.value==='-' ? 0 : +el.value; }); save(); },
+  mod(el){ withDeck((d,st)=>{ const v = el.value===''||el.value==='-' ? 0 : +el.value; const c = curMod(d, st); if (c.sm){ st.input.adj = st.input.adj || {}; st.input.adj[c.key] = v - c.sm.total; return; } st.input.mods[st.input.type] = v; }); save(); },
+  attr(el){ const d = activeDeck(); if (!d) return; const v = parseInt(el.value, 10); if (isNaN(v)) return; const a = sheetOf(d); a.s[el.dataset.k] = Math.max(1, Math.min(30, v)); a.on = true; const m = el.parentElement && el.parentElement.querySelector('.amod'); if (m) m.textContent = signed(attrMod(a.s[el.dataset.k])); save(); },
+  prof(el){ const d = activeDeck(); if (!d) return; const a = sheetOf(d); a.ae[el.dataset.k] = el.value; a.on = true; save(); },
+  'sheet-num'(el){ const d = activeDeck(); if (!d) return; const v = parseInt(el.value, 10); if (isNaN(v)) return; sheetNum(d, el.dataset.k, v, 0); save(); },
   dc(el){ withDeck((d,st)=>{ st.input.dc = el.value==='' ? '' : +el.value; }); save(); },
   gmod(el){ S.gm.input.mod = el.value===''||el.value==='-' ? 0 : +el.value; save(); },
   gdc(el){ S.gm.input.dc = el.value==='' ? '' : +el.value; save(); },
@@ -3463,7 +3600,7 @@ const BIND = {
   rulesq(el){ S.rules.q = el.value; },
   rulesjump(el){ const t = $(el.value); if (t){ if (S.rules.q){ S.rules.q = ''; render(); } const t2 = $(el.value); if (t2) t2.scrollIntoView({block:'start'}); } },
 };
-const RERENDER_ON_CHANGE = new Set(['mod','dc','gmod','gdc','flatdc','count','jk-R','jk-B','ability','st-size']);
+const RERENDER_ON_CHANGE = new Set(['mod','dc','gmod','gdc','flatdc','count','jk-R','jk-B','ability','st-size','attr','prof','sheet-num']);
 const RERENDER_ON_INPUT = new Set(['wmq','rulesq']);
 function nmBind(name){ const m = name.match(/^dmg-(n|b|die|times)-(p|g)$/); return m; }
 
