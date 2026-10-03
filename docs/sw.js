@@ -1,5 +1,5 @@
 /* Aces & Eclipses Companion App: keeps the app on the phone so it opens with no internet. */
-const VERSION = 'sst-c5137c78e076';
+const VERSION = 'sst-6887638a61c2';
 const FONTS = 'sst-fonts';
 const CORE = ['./', './index.html', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png', './icons/maskable-512.png', './icons/apple-touch-icon.png', './icons/favicon-32.png'];
 self.addEventListener('install', e => {
