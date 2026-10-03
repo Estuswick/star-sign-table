@@ -360,6 +360,17 @@ button.pcbtn:hover .pc{transform:translateY(-3px)}
 .gmd{display:flex;flex-direction:column;gap:14px;min-width:0}
 @media (min-width:900px){.gmd-flat{position:relative}.gmd-flat::before{content:"";position:absolute;left:-20px;top:2px;bottom:2px;border-left:1px dotted var(--line)}}
 @media (max-width:899px){.gmdraw-grid{grid-template-columns:minmax(0,1fr)}.gmd-flat{padding-top:4px}}
+.fbody{display:flex;gap:14px 16px;align-items:flex-start;flex:1 1 auto}
+.fmain{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:14px}
+.lastface{--lf:#8E80D4;flex:none;width:108px;display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 8px 12px;text-align:center;border:1px solid color-mix(in srgb, var(--lf) 62%, transparent);border-radius:var(--r);background:linear-gradient(180deg, rgba(122,104,214,.17), rgba(82,72,172,.07));box-shadow:inset 0 0 0 1px rgba(150,132,235,.07)}
+.lastface .lfl{font-family:var(--ui);text-transform:uppercase;font-weight:500;font-size:10.5px;line-height:1.3;letter-spacing:.12em;color:#C4BAF0}
+.lastface .pc.md{--cw:60px}
+.lastface .lfempty{width:60px;height:84px;border:1px dashed color-mix(in srgb, var(--lf) 62%, transparent);border-radius:5px}
+.lastface .lfn{font-size:13.5px;line-height:1.2;color:var(--sky-ink)}
+.lastface .lfs{font-family:var(--ui);font-size:11.5px;color:#B4A9E2}
+.lastface .lfnow{font-family:var(--ui);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:#1B1440;background:#B8ABF0;border-radius:999px;padding:2px 8px}
+.lastface.now{border-color:#A797EC;box-shadow:0 0 0 1px rgba(167,151,236,.35), 0 0 18px rgba(140,120,230,.22)}
+@media (min-width:520px){.lastface{width:124px}.lastface .pc.md{--cw:72px}.lastface .lfempty{width:72px;height:101px}}
 .wmstrip{margin-top:auto;display:flex;align-items:center;flex-wrap:wrap;gap:8px 12px;padding-top:12px;border-top:1px solid var(--sky-line)}
 .wmstrip .wml{font-family:var(--ui);text-transform:uppercase;font-weight:500;font-size:11.5px;letter-spacing:.14em;color:var(--sky-muted)}
 .wmsets{display:flex;flex-wrap:wrap;gap:10px}
@@ -2575,7 +2586,8 @@ function viewGM(){
 function fateTable(fs){
   const r = fs.table;
   let h = `<section class="table fate" aria-live="polite"><div class="th"><span class="lbl">${r ? gmLabel(r) : 'The Fate Deck'}</span><span class="lbl">${fs.draw.length} in deck</span></div>`;
-  if (!r){ h += `<div class="idle"><div class="fan">${card(null,{back:true,size:'lg'})}</div><p>Shuffled and ready. Set the modifier and DC if you want the result worked out, then draw.</p></div>`; return h + wmStrip(fs) + '</section>'; }
+  if (!r){ h += `<div class="fbody"><div class="fmain"><div class="idle"><div class="fan">${card(null,{back:true,size:'lg'})}</div><p>Shuffled and ready. Set the modifier and DC if you want the result worked out, then draw.</p></div></div>${lastFace(fs, null)}</div>`; return h + wmStrip(fs) + '</section>'; }
+  h += '<div class="fbody"><div class="fmain">';
   const faces = (r.events||[]).filter(e=>e.kind==='face'||e.kind==='face-away');
   if (r.kind==='flat'){
     const cards = r.cards.map((c,i)=>card(c,{size:'lg',dim:!r.keep.includes(i),deal:ui.gmFresh?i:null})).join('');
@@ -2593,7 +2605,18 @@ function fateTable(fs){
   if (fs.wild && (r.events||[]).some(e=>e.kind==='face')) notes.push(`<p class="gold"><b>The fourth set is complete: wild magic goes off.</b> <button type="button" class="linkbtn" data-act="to-wild">See the wild magic panel</button></p>`);
   h += `<div class="tnotes">${notes.join('')}</div>`;
   if (r.kind==='check') h += `<div class="tact"><button class="btn sm" data-act="greroll" data-how="new">Reroll: ${W().rNew.toLowerCase()}</button><button class="btn sm" data-act="greroll" data-how="better">Reroll: ${W().rBetter.toLowerCase()}</button></div>`;
+  h += '</div>' + lastFace(fs, r) + '</div>';
   return h + wmStrip(fs) + '</section>';
+}
+// The last face card drawn, in its own box at the far right of the card display (with wild magic).
+function lastFace(fs, r){
+  if (!wmOn()) return '';
+  const i = fs.sets.length - 1, x = fs.sets[i];
+  const now = !!(x && r && (r.events||[]).some(e=>e.kind==='face' && e.card.r===x.card.r && e.card.s===x.card.s));
+  const body = x
+    ? `${card(x.card,{size:'md', deal: now && ui.gmFresh ? 2 : null})}<span class="lfn">${esc(P.cardName(x.card))}</span><span class="lfs">Set ${Math.floor(i/3)+1} · card ${i%3+1} of 3</span>${now ? '<span class="lfnow">This draw</span>' : ''}`
+    : `<span class="lfempty" aria-hidden="true"></span><span class="lfs">None yet</span>`;
+  return `<aside class="lastface${now ? ' now' : ''}" aria-label="Last face card drawn"><span class="lfl">Last face card drawn</span>${body}</aside>`;
 }
 // The wild magic sets, small, along the bottom of the card display: four sets of three.
 function wmStrip(fs){
