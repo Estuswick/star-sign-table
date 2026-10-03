@@ -4,7 +4,7 @@ The companion app for the *Aces & Eclipses Core Rulebook*, the fantasy roleplayi
 
 - **Build** a balanced star-sign deck, step by step, with the Lab test.
 - **Play** it on your phone in place of paper cards: checks, fortune and misfortune, rerolls, spells, held draws, sign abilities, deck-outs and exhaustion.
-- **Run the game** as GM: the Fate Deck, flat checks, wild magic with all 93 combinations, and the damage deck.
+- **Run the game** as GM: the Fate Deck (100 cards, or 112 with the face cards when the table plays with wild magic), flat checks, wild magic with all 93 combinations (an optional rule, in Aces & Eclipses and in d20 Classic), and the damage deck.
 - **Read** the whole *Aces & Eclipses Core Rulebook*, searchable.
 
 It works with no internet once it's on your phone. A bonus mode, **d20 Classic compatibility** (off by default, under Settings), plays the same decks with fifth edition and 3.5 rules.
@@ -20,7 +20,7 @@ This app used to be called the Star-Sign Table. Decks saved in it carry over on 
 
 - `docs/`: the app itself (one self-contained page), served as the website.
 - `android/`: a small Android app that runs the same page with no internet.
-- `tools/book_data.py`: puts a new version of the Core Rulebook (its Markdown) into the app: the Rules tab and the wild magic table.
+- `tools/book_data.py`: puts a new version of the Core Rulebook (its Markdown) into the app: the Rules tab and the wild magic table. Give it *Core Engine: d20 Classic* as well to update d20 Classic's wild magic names, effects and Oddities.
 - `.github/workflows/android.yml`: builds the Android app automatically whenever the app changes.
 - `LICENSES.md`: the license notices.
 

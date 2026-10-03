@@ -1,10 +1,12 @@
 """Put the Aces & Eclipses Core Rulebook into the app.
 
-Usage: python3 tools/book_data.py docs/index.html "Aces & Eclipses Core Rulebook.md"
+Usage: python3 tools/book_data.py docs/index.html "Aces & Eclipses Core Rulebook.md" ["Core Engine - d20 Classic.md"]
 
 Reads the rulebook's Markdown and rewrites two things in the page:
 - the "ae" book in the rules data (the Rules tab), one section per chapter or appendix;
 - the names and effects in the wild magic table and the Oddities, from chapter 14.
+With the d20 Classic Core Engine as well, it also fills in d20 Classic's wild magic names, effects
+and Oddities (its chapter 13), checking that every combination has the same result and opposite.
 The d20 Classic books in the rules data are left as they are.
 """
 import json
@@ -13,6 +15,7 @@ import sys
 from markdown_it import MarkdownIt
 
 PAGE, BOOK = sys.argv[1], sys.argv[2]
+CLASSIC = sys.argv[3] if len(sys.argv) > 3 else None
 md = MarkdownIt("commonmark", {"typographer": False}).enable("table")
 
 
@@ -95,7 +98,27 @@ for row in wild["WM"]:
         sys.exit(f"#{row[0]}: the book says {res} / #{opp}, the app has {row[2]} / #{row[5]}")
     row[6], row[7] = name, effect
 wild["ODD"] = [[k, v] for k, v in odd]
+
+# ---- d20 Classic wild magic: names and effects from Core Engine: d20 Classic, chapter 13 -------
+note = ""
+if CLASSIC:
+    cbook = open(CLASSIC, encoding="utf-8").read()
+    crows = {}
+    for r in re.finditer(r"^\| (\d+) \| ([^|]+) \| ([^|]+?) \| (?:#(\d+))? ?\| \*\*(.+?)\.\*\* (.+?) \|$", cbook, re.M):
+        crows[int(r.group(1))] = (r.group(3).strip(), int(r.group(4)) if r.group(4) else None, r.group(5), r.group(6).strip())
+    if len(crows) != 93:
+        sys.exit(f"found {len(crows)} d20 Classic wild magic rows, expected 93")
+    for row in wild["WM"]:
+        res, opp = crows[row[0]][:2]
+        if res != row[2] or (opp is not None and opp != row[5]):
+            sys.exit(f"d20 Classic #{row[0]}: the book says {res} / #{opp}, the app has {row[2]} / #{row[5]}")
+    codd = re.findall(r"^\| (A|\d+) \| (.+?) \|$", cbook.split("### Oddities")[1].split("\n## ")[0], re.M)
+    if len(codd) != 10:
+        sys.exit(f"found {len(codd)} d20 Classic oddities, expected 10")
+    wild["C"] = [[crows[n][2], crows[n][3]] for n in range(1, 94)]
+    wild["CODD"] = [[k, v] for k, v in codd]
+    note = "; d20 Classic wild magic: 93 effects, 10 oddities"
 page = page[: m.start(1)] + json.dumps(wild, ensure_ascii=False, separators=(",", ":")) + page[m.end(1):]
 
 open(PAGE, "w", encoding="utf-8").write(page)
-print(f"{title}: {len(out)} sections; wild magic: 93 effects, 10 oddities")
+print(f"{title}: {len(out)} sections; wild magic: 93 effects, 10 oddities{note}")
