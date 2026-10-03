@@ -1809,7 +1809,7 @@ function fresh(){
     table:null,
     gm:{party:[{id:'p1',name:'Aria',level:3,ex:true},{id:'p2',name:'Bram',level:3,ex:true},{id:'p3',name:'Corin',level:3,ex:true}], who:'Aria', showLocal:false, enc:false, hosting:false, tableCode:null, input:{type:'attack', mod:10, dc:''}, flatDc:11, dying:1, dmg:{n:2, die:8, bonus:4, who:'monster', crit:false, big:false, times:2}, sets:null},
     gdamage:null, pdamage:null, dmg:{n:1, die:8, bonus:3, who:'player', crit:false, big:false, times:2},
-    settings:{counts:false, theme:'system', wake:true}, rules:{book:'stars', q:''}, firstRun:true};
+    settings:{counts:false, theme:'system', wake:true}, rules:{book:'stars', q:''}, open:{}, firstRun:true};
 }
 let S = null, saveTimer = null, canSave = true;
 function load(){
@@ -2209,8 +2209,13 @@ function heldPanel(st){
 }
 function restPanel(deck, st){
   const w = W();
+  // Opens by itself when this deck gains a level of exhaustion (or collapses); if you close it, it stays closed until the next level.
+  S.open = S.open || {};
+  const seenKey = 'rest-seen:'+deck.id, seen = S.open[seenKey] || 0, lvl = st.collapsed ? 4 : st.level;
+  if (lvl > seen) S.open['play-rest'] = true;
+  if (lvl !== seen) S.open[seenKey] = lvl;
   const confirm = ui.confirm==='rest';
-  return `<details class="panel" ${st.level||st.collapsed?'open':''}><summary>Rest and ${w.exh}<small>${st.level ? w.lvl(Math.min(4,st.level)) : 'no '+w.exh}</small></summary>
+  return `<details class="panel" ${det('play-rest', false)}><summary>Rest and ${w.exh}<small>${st.level ? w.lvl(Math.min(4,st.level)) : 'no '+w.exh}</small></summary>
     <div class="view" style="gap:12px">
       <div class="row">
       ${st.collapsed ? `<button class="btn sm" data-act="wake">Wake up after 10 minutes</button>` : ''}
@@ -2222,7 +2227,7 @@ function restPanel(deck, st){
 function effectsPanel(st){
   const fx = st.fx;
   const t = (key, label, desc) => `<div class="opt"><div><b>${label}</b><p>${desc}</p></div><button type="button" class="switch" role="switch" aria-checked="${!!fx[key]}" aria-label="${label}" data-act="fx" data-k="${key}"></button></div>`;
-  return `<details class="panel"><summary>Wild magic on you<small>When the GM says it went off</small></summary>
+  return `<details class="panel" ${det('play-wild', false)}><summary>Wild magic on you<small>When the GM says it went off</small></summary>
     <div>
       ${t('dayForNight','Day for Night (#49)','Suns and Eclipses swap meanings until the encounter ends.')}
       ${t('sunBreaks','Sun Breaks Through (#33)','Your next Eclipse counts as a Sun.')}
@@ -2252,7 +2257,7 @@ function logPanel(log){
     const ev = (r.events||[]).filter(x=>x.kind==='deckout').map(x=>x.gained ? `Deck-out: ${W().lvl(x.level)}` : 'Deck-out: Unyielding').join(' · ');
     return `<li><span class="what">${esc(r.label || tableLabel(r).replace(/<[^>]+>/g,''))} <small>${t}</small></span><span class="res">${esc(res)}</span><span style="grid-column:1/-1">${mini(r.cards||[])}</span>${ev?`<span class="ev">${esc(ev)}</span>`:''}</li>`;
   }).join('');
-  return `<details class="panel"><summary>History<small>${log.length ? plural(log.length,'entry','entries') : 'nothing yet'}</small></summary>${rows ? `<ul class="log">${rows}</ul>` : '<p class="empty">Draws show up here.</p>'}</details>`;
+  return `<details class="panel" ${det('play-log', false)}><summary>History<small>${log.length ? plural(log.length,'entry','entries') : 'nothing yet'}</small></summary>${rows ? `<ul class="log">${rows}</ul>` : '<p class="empty">Draws show up here.</p>'}</details>`;
 }
 function playEmpty(){
   syncLab();
@@ -2298,7 +2303,7 @@ function damagePanel(side){
       ${last.rolls.some(x=>x.joker) ? `<p class="note" style="margin-top:6px">★ A Joker counts as the die’s maximum${last.who==='monster' ? ', and a monster draws another die of the same size' : ''}.</p>` : ''}</div>`;
   }
   const otherRes = other ? `<div class="callout small"><b class="mono">${other.value}</b> · ${esc(other.text)}${other.row ? `<br>${esc(other.row[1])}` : ''}</div>` : '';
-  return `<details class="panel" ${side==='g'?'open':''}><summary>${side==='g' ? 'Damage deck' : 'Your damage deck'}<small>${ds.draw.length} of 42 left</small></summary>
+  return `<details class="panel" ${det(side==='g' ? 'gm-dmg' : 'play-dmg', side==='g')}><summary>${side==='g' ? 'Damage deck' : 'Your damage deck'}<small>${ds.draw.length} of 42 left</small></summary>
     <div class="view" style="gap:12px">
       <div class="row" style="align-items:flex-end;gap:12px">
         <div class="field"><span>Dice</span>${stepper(side+'-n', o.n, 'dmg-n-'+side, 'number of dice')}</div>
@@ -2332,7 +2337,7 @@ function viewBuild(){
   const list = decksFor(G());
   let h = `<div class="view"><div class="vhead"><div><p class="eyebrow">Deck builder · ${w.game}</p><h1>${d.editId ? 'Edit your deck' : 'Build your deck'}</h1></div>
     <p>Follow the steps from top to bottom. The Lab test checks every rule as you go, and when a deck fails it finds the smallest card change that fixes it.</p></div>`;
-  if (list.length) h += `<details class="panel" ${d.editId?'':''}><summary>Your saved decks<small>${plural(list.length,'deck')}</small></summary><div class="decklist">${list.map(x=>`<div class="deckitem"><b>${esc(x.name)}</b><span class="c">${esc(deckLine(x))}<br>${esc(deckCode(x))}</span><div class="row"><button class="btn sm primary" data-act="open-deck" data-id="${x.id}">Play</button><button class="btn sm" data-act="edit-deck" data-id="${x.id}">Edit</button><button class="btn sm" data-act="copy-code" data-id="${x.id}">Copy code</button>${ui.confirm==='del-'+x.id ? `<button class="btn sm warn" data-act="del-deck-yes" data-id="${x.id}">Delete for good</button><button class="btn sm" data-act="confirm-no">Keep</button>` : `<button class="btn sm warn" data-act="del-deck" data-id="${x.id}">Delete</button>`}</div></div>`).join('')}</div></details>`;
+  if (list.length) h += `<details class="panel" ${det('build-saved', false)}><summary>Your saved decks<small>${plural(list.length,'deck')}</small></summary><div class="decklist">${list.map(x=>`<div class="deckitem"><b>${esc(x.name)}</b><span class="c">${esc(deckLine(x))}<br>${esc(deckCode(x))}</span><div class="row"><button class="btn sm primary" data-act="open-deck" data-id="${x.id}">Play</button><button class="btn sm" data-act="edit-deck" data-id="${x.id}">Edit</button><button class="btn sm" data-act="copy-code" data-id="${x.id}">Copy code</button>${ui.confirm==='del-'+x.id ? `<button class="btn sm warn" data-act="del-deck-yes" data-id="${x.id}">Delete for good</button><button class="btn sm" data-act="confirm-no">Keep</button>` : `<button class="btn sm warn" data-act="del-deck" data-id="${x.id}">Delete</button>`}</div></div>`).join('')}</div></details>`;
   h += '<div class="steps">';
   // 1. starting point
   const from = d.from || 'sign';
@@ -2407,7 +2412,7 @@ function sizeStep(d, k){
     <div class="row">${mk(k.sizeOK)} <span class="small">${k.sizeOK ? `Allowed at ${k.step} cards (Suns / Eclipses): ${allowed.map(x=>x.replace('/',' / ')).join(', ')}` : 'Decks run from 45 to 90 cards.'}</span></div>
     ${k.sizeOK && !k.jokersOK ? `<div class="callout bad">${esc(k.jokerWhy || 'That Joker setup isn’t allowed at this size.')}</div>` : ''}
     <p class="note">${setupNote}</p>
-    <details><summary class="small" style="cursor:pointer">How size changes the day</summary><div class="tablewrap" style="margin-top:8px"><table><thead><tr><th>Size</th><th>Runs out in a standard day</th><th>Highest ${w.exh}</th></tr></thead><tbody><tr><td>45</td><td>twice</td><td>${w.lvl(2)}</td></tr><tr><td>50–90</td><td>once</td><td>${w.lvl(1)}</td></tr></tbody></table></div></details>
+    <details ${det('build-size', false)}><summary class="small" style="cursor:pointer">How size changes the day</summary><div class="tablewrap" style="margin-top:8px"><table><thead><tr><th>Size</th><th>Runs out in a standard day</th><th>Highest ${w.exh}</th></tr></thead><tbody><tr><td>45</td><td>twice</td><td>${w.lvl(2)}</td></tr><tr><td>50–90</td><td>once</td><td>${w.lvl(1)}</td></tr></tbody></table></div></details>
   </section></div>`;
 }
 function abilityStep(d, k){
@@ -2441,7 +2446,7 @@ function cardsStep(d, k){
     <p class="note">Hit your row’s <b>pip total</b> exactly (all your number cards added up), land the <b>swing points</b> in range${isP()?'':', keep the <b>lean</b> in range'}, and keep any one value to a third of your number cards.</p>
     <div class="editor">${ed}</div>
     <div class="meters">${meters.join('')}</div>
-    <details><summary class="small" style="cursor:pointer">The pip dial and the swing dial: move one number without the other</summary>
+    <details ${det('build-dials', false)}><summary class="small" style="cursor:pointer">The pip dial and the swing dial: move one number without the other</summary>
       <div class="dials" style="margin-top:10px">
         <div class="dial"><b class="small">Pip dial · flip a card to its mirror</b>${flip.map(([a,b,p])=>`<div class="dr"><span>${nm(a)} ↔ ${nm(b)} · ${p} pip${p>1?'s':''}</span><button class="btn sm" data-act="flip" data-a="${a}" data-b="${b}" ${has(a)?'':'disabled'}>${nm(a)} → ${nm(b)} (+${p})</button><button class="btn sm" data-act="flip" data-a="${b}" data-b="${a}" ${has(b)?'':'disabled'}>${nm(b)} → ${nm(a)} (−${p})</button></div>`).join('')}<p class="note">Changes the pip total${isP()?'':' and the lean'}; swing points stay the same.</p></div>
         <div class="dial"><b class="small">Swing dial · push two cards apart</b>${push.map(([a,a2,b,b2,s])=>`<div class="dr"><span>${nm(a)}→${nm(a2)} and ${nm(b)}→${nm(b2)}</span><button class="btn sm" data-act="swing" data-f="${a},${b}" data-t="${a2},${b2}" ${has(a)&&has(b)&&(a!==b||d.c[a-1]>1)?'':'disabled'}>Apart (+${s})</button><button class="btn sm" data-act="swing" data-f="${a2},${b2}" data-t="${a},${b}" ${has(a2)&&has(b2)?'':'disabled'}>Together (−${s})</button></div>`).join('')}<p class="note">Changes the swing points; the pip total stays the same.</p></div>
@@ -2656,7 +2661,7 @@ function wildPanel(fs){
   const palette = ['♥','♦','♠','♣'].map(s=>`<div class="suit">${['J','Q','K'].map(rk=>{ const used = fs.sets.some(x=>x.card.r===rk && x.card.s===s); return `<button type="button" class="pcbtn" data-act="place-face" data-c="${rk}${s}" ${used||fs.sets.length>=12?'disabled':''} aria-label="Place ${P.cardName({r:rk,s})}">${card({r:rk,s},{size:'sm'})}</button>`; }).join('')}</div>`).join('');
   return `<section class="panel" aria-labelledby="wm-h"><div class="panel-h"><h2 id="wm-h">Wild magic</h2><span class="hint">${fs.sets.length} of 12 · net ${signed(net)}</span></div>
     ${res}
-    <details><summary class="small" style="cursor:pointer">Placing face cards by hand (physical Fate Deck, or a correction)</summary>
+    <details ${det('gm-place', false)}><summary class="small" style="cursor:pointer">Placing face cards by hand (physical Fate Deck, or a correction)</summary>
       <div class="view" style="gap:10px;margin-top:10px"><div class="palette">${palette}</div><div class="row"><button class="btn sm" data-act="unplace-face" ${fs.sets.length?'':'disabled'}>Undo the last face card</button></div><p class="note">The rules count only face cards drawn for checks made in response to a player’s action. If one shouldn’t count, Undo the last face card puts it back in the deck.</p></div></details>
   </section>`;
 }
@@ -2666,7 +2671,7 @@ function effectsList(fs){
   const list = WILD.WM.filter(r=>(f==='all' || r[2]===f) && (!q || (wmName(r)+' '+wmText(r)+' #'+r[0]).toLowerCase().includes(q)));
   const chips = ['all','Good 4','Good 3','Good 2','Good 1','Mixed','Bad 1','Bad 2','Bad 3','Bad 4'].map(k=>`<button type="button" class="chip" data-act="wm-filter" data-v="${k}" aria-pressed="${f===k}">${k==='all'?'All':k}</button>`).join('');
   const suits = sets => sets.map(t=>[...t].map(s=>P.RED(s)?`<i>${s}&#xFE0E;</i>`:s+'&#xFE0E;').join('')).join(' · ');
-  return `<details class="panel"><summary>All 93 combinations<small>${list.length===93?'the full table':list.length+' of 93'}</small></summary>
+  return `<details class="panel" ${det('gm-fx', false)}><summary>All 93 combinations<small>${list.length===93?'the full table':list.length+' of 93'}</small></summary>
     <div class="view" style="gap:10px"><div class="chips" role="group" aria-label="Filter by result">${chips}</div><input class="input" id="wm-q" type="search" placeholder="Search effects" value="${esc(ui.wmQ||'')}" data-bind="wmq" aria-label="Search effects">
     <ol class="fx">${list.map(r=>{ const side = r[2].startsWith('Good')?'good':r[2].startsWith('Bad')?'bad':'mixed'; return `<li class="${r[0]===cur?'cur':''}"><div class="who"><span class="mono">#${r[0]} · <span class="pill ${side}">${r[2]}</span></span><span class="suits">${suits(r[1])}</span><span>${r[3].toFixed(2)}% · 1 in ${r[4]}${r[5]?` · opposite #${r[5]}`:''}</span></div><div class="what"><b>${esc(wmName(r))}.</b> ${esc(wmText(r))}</div></li>`; }).join('') || '<li class="empty">No effects match.</li>'}</ol></div></details>`;
 }
@@ -2676,7 +2681,7 @@ function gmLog(fs){
     const j = r.total!=null && r.kind==='check' ? P.judge(r, G(), S.sub) : null;
     const res = r.kind==='flat' ? (r.pass?'pass':'fail') : r.total!=null ? (r.nat===20?'nat 20':r.nat===1?'nat 1':r.total) + (j&&j.label?' · '+j.label:'') : '';
     return `<li><span class="what">${gmLabel(r)} <small>${t}</small></span><span class="res">${esc(res)}</span><span style="grid-column:1/-1">${mini(r.cards||[])}</span></li>`; }).join('');
-  return `<details class="panel"><summary>History<small>${fs.log.length ? plural(fs.log.length,'draw') : 'nothing yet'}</small></summary>${rows ? `<ul class="log">${rows}</ul>` : '<p class="empty">Fate Deck draws show up here.</p>'}</details>`;
+  return `<details class="panel" ${det('gm-log', false)}><summary>History<small>${fs.log.length ? plural(fs.log.length,'draw') : 'nothing yet'}</small></summary>${rows ? `<ul class="log">${rows}</ul>` : '<p class="empty">Fate Deck draws show up here.</p>'}</details>`;
 }
 
 /* =====================================================================
@@ -3180,7 +3185,7 @@ function openSettings(){
       <p class="note">${isP() ? 'The companion app for the <i>Aces &amp; Eclipses Core Rulebook</i>: every rule here is from that book.' : `Rules from <i>${esc(w.book)}</i> and <i>Written in the Stars: d20 Classic</i>.`} Deck balance uses the same Lab test as the Star-Sign Deck Lab.</p>
       <h3>Licenses</h3>
       <p class="note"><i>Aces &amp; Eclipses Companion App</i> © 2026 Different Games. Aces &amp; Eclipses and the Aces &amp; Eclipses Compatibility Logo are trademarks of Different Games. The rules are released under the ORC License.${S.compat ? ' The d20 Classic rules include material from the System Reference Document 5.2.1, under the Creative Commons Attribution 4.0 license.' : ''}</p>
-      <details class="lic"><summary>Read the licenses</summary><div class="prose lic-body">${licHtml()}</div></details>
+      <details class="lic" ${det('set-lic', false)}><summary>Read the licenses</summary><div class="prose lic-body">${licHtml()}</div></details>
     </div></div></div>`;
   const btn = $('sheet-root').querySelector('.sheet .iconbtn'); if (btn) btn.focus();
 }
@@ -3191,7 +3196,7 @@ function offlineSettings(){
     const apk = androidLink();
     return `<p class="note">${standalone ? 'This app is installed and works with no internet.' : 'Install this app on your phone and it opens from your home screen, with no internet needed.'} Your decks are kept on this device; a backup code moves them to another one.</p>
       ${!standalone && INSTALL.evt ? `<div class="row"><button class="btn sm primary" data-act="install">Install on this device</button></div>` : ''}
-      ${!standalone ? `<details><summary class="small" style="cursor:pointer">How to install</summary><div class="note" style="margin-top:8px;display:flex;flex-direction:column;gap:6px">
+      ${!standalone ? `<details ${det('set-install', false)}><summary class="small" style="cursor:pointer">How to install</summary><div class="note" style="margin-top:8px;display:flex;flex-direction:column;gap:6px">
         <p><b>Android (Chrome):</b> tap the ⋮ menu, then <b>Install app</b> or <b>Add to Home screen</b>.</p>
         <p><b>iPhone and iPad (Safari):</b> tap the Share button, then <b>Add to Home Screen</b>.</p>
         <p>Open it once while you have internet; after that it works offline.</p></div></details>` : ''}
@@ -3200,7 +3205,7 @@ function offlineSettings(){
   if (HOST==='file') return '<p class="note"><b>This is the offline copy.</b> It needs no internet and keeps its own decks; move decks here with a backup code.</p>';
   return `<p class="note">Once this page is open it needs no internet: draws, the deck builder, the Fate Deck, wild magic and the rules all run on your phone. Only the live table needs a connection. Keep the page open, or save a copy that opens with no connection at all.</p>
       ${DL.avail ? `<div class="row"><button class="btn sm primary" data-act="save-offline">Save the app to this device</button></div>` : ''}
-      <details><summary class="small" style="cursor:pointer">Opening the saved copy on a phone</summary><div class="note" style="margin-top:8px;display:flex;flex-direction:column;gap:6px">
+      <details ${det('set-savedcopy', false)}><summary class="small" style="cursor:pointer">Opening the saved copy on a phone</summary><div class="note" style="margin-top:8px;display:flex;flex-direction:column;gap:6px">
         <p><b>Android:</b> open the saved file from your downloads in Chrome.</p>
         <p><b>iPhone and iPad:</b> the Files app shows web pages without running them, so open the saved file in an app that runs HTML files offline. Or open this link while you have signal and leave it open: it keeps working when the signal drops.</p>
         <p><b>Your decks don’t copy over by themselves.</b> The saved copy keeps its own decks. Copy a backup code here and restore it in the saved copy.</p></div></details>`;
@@ -3241,6 +3246,10 @@ document.addEventListener('visibilitychange', ()=>{ if (document.visibilityState
 
 function withDeck(fn){ const d = activeDeck(); if (!d) return; const st = pstate(d); fn(d, st); }
 function inputs(st){ return {type:st.input.type, mod:+st.input.mods[st.input.type]||0, dc: st.input.dc===''||st.input.dc==null ? '' : +st.input.dc}; }
+/* Drop-downs (<details>) keep the open or closed state you leave them in, through every redraw and the
+   next time the app opens. Each has a name (data-dk); opening or closing one is saved on this device.
+   det(name, open by default?) gives a drop-down its name and its state. */
+function det(key, def){ const v = S.open && S.open[key]; return `data-dk="${key}"${(typeof v==='boolean' ? v : def) ? ' open' : ''}`; }
 function dealt(){ ui.fresh = true; ui.pick = null; ui.scrollTable = true; keepAwake(); }
 /* Undo: one step back for the last check drawn with a Draw panel's buttons. The state from just before
    the check comes back, so its cards return to the deck, and then whatever is left in the deck is
@@ -3458,6 +3467,11 @@ const RERENDER_ON_CHANGE = new Set(['mod','dc','gmod','gdc','flatdc','count','jk
 const RERENDER_ON_INPUT = new Set(['wmq','rulesq']);
 function nmBind(name){ const m = name.match(/^dmg-(n|b|die|times)-(p|g)$/); return m; }
 
+document.addEventListener('toggle', ev=>{
+  const d = ev.target; if (!d || d.tagName!=='DETAILS' || !d.dataset || !d.dataset.dk) return;
+  S.open = S.open || {}; if (S.open[d.dataset.dk]===d.open) return;
+  S.open[d.dataset.dk] = d.open; save();
+}, true);
 document.addEventListener('click', ev=>{
   const el = ev.target.closest('[data-act]'); if (!el) return;
   if (el.disabled) return;
@@ -3523,6 +3537,7 @@ function migrate(){
     for (const x of (fs.sets||[])) if (ids[x.who]) x.who = ids[x.who];
     if (fs.wild && ids[fs.wild.destined]) fs.wild.destined = ids[fs.wild.destined]; }
   for (const k of ['showLocal','enc','hosting']) if (S.gm[k]===undefined) S.gm[k] = false;
+  if (!S.open || typeof S.open!=='object') S.open = {};
   for (const d of S.decks) if (!d.level) d.level = 1;
 }
 async function liveBoot(){
