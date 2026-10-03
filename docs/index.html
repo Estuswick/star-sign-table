@@ -1578,7 +1578,7 @@ const PLAY = (function(){
     if (!wm){ fs.sets = []; fs.wild = null; }
     fs.v = 3; fs.wm = wm; return changed;
   }
-  // Draw one Fate Deck card; face cards go into the wild magic sets (or away) and are replaced.
+  // Draw one Fate Deck card; face cards go into the wild magic sets (or away, if the sets are full) and are replaced.
   function fateDrawOne(fs, who, events){
     for (;;){
       if (!fs.draw.length){
@@ -1588,7 +1588,7 @@ const PLAY = (function(){
       const c = fs.draw.pop();
       if (!fs.draw.length){ fs.draw = shuffle(fs.discard.splice(0)); events.push({kind:'fatereshuffle'}); }
       if (!isFace(c)) return c;
-      if (who && fs.sets.length<12){
+      if (fs.sets.length<12){
         fs.sets.push({card:c, who});
         events.push({kind:'face', card:c, who});
         if (fs.sets.length===12) fs.wild = wildResult(fs.sets, who);
@@ -1967,7 +1967,7 @@ function renderNow(){
 function noteWild(){
   const fs = S.fate && S.fate[G()];
   if (!fs || !fs.wild || !fs.wild.row || fs.wild.noted) return;
-  fs.wild.noted = true; fs.wild.level = memberLevel(fs.wild.destined) || fs.wild.level || null;
+  fs.wild.noted = true; fs.wild.level = fs.wild.level || memberLevel(fs.wild.destined) || partyLevel();
   sendWild(fs);
 }
 function after(){
@@ -2529,7 +2529,6 @@ function viewGM(){
   // Every draw from the Fate Deck, in one section: checks on the left, flat checks on the right.
   const need = P.flatNeed(S.gm.flatDc);
   h += `<section class="panel gmdraw" aria-label="Draw from the Fate Deck">
-    ${wmOn() ? `<div id="gm-who">${whoPick()}</div>` : ''}
     <div class="gmdraw-grid">
     <div class="gmd" role="group" aria-labelledby="gd-h">
     <div class="panel-h"><h2 id="gd-h">Draw</h2><span class="hint">${fs.draw.length} left to draw of ${wmOn() ? 112 : 100}${wmOn() ? ` · ${fs.sets.length} face card${fs.sets.length===1?'':'s'} in the sets` : ''}</span></div>
@@ -2588,7 +2587,7 @@ function fateTable(fs){
     const b = resultBlock(r, {deal: ui.gmFresh}); h += b.h;
   }
   const notes = [];
-  for (const e of faces) notes.push(e.kind==='face' ? `<p class="gold"><b>${esc(P.cardName(e.card))}</b> drawn and replaced. It goes into the wild magic sets for ${esc(partyName(e.who)||'the party')}.</p>` : `<p><b>${esc(P.cardName(e.card))}</b> drawn and replaced. No player’s action, so it doesn’t count; it goes to the discard pile.</p>`);
+  for (const e of faces) notes.push(e.kind==='face' ? `<p class="gold"><b>${esc(P.cardName(e.card))}</b> drawn and replaced. It goes into the wild magic sets.</p>` : `<p><b>${esc(P.cardName(e.card))}</b> drawn and replaced. The wild magic sets are full, so it goes to the discard pile.</p>`);
   if ((r.events||[]).some(e=>e.kind==='fatereshuffle')) notes.push(`<p>The Fate Deck ran out and was reshuffled. It never causes ${W().exh}.</p>`);
   for (const n of (r.notes||[])) notes.push(`<p>${esc(n)}</p>`);
   if (fs.wild && (r.events||[]).some(e=>e.kind==='face')) notes.push(`<p class="gold"><b>The fourth set is complete: wild magic goes off.</b> <button type="button" class="linkbtn" data-act="to-wild">See the wild magic panel</button></p>`);
@@ -2617,9 +2616,9 @@ function wildPanel(fs){
   let res = '';
   if (fs.wild && fs.wild.row){
     const r = fs.wild.row, side = r[2].startsWith('Good') ? 'good' : r[2].startsWith('Bad') ? 'bad' : 'mixed';
-    const lvl = fs.wild.level || memberLevel(fs.wild.destined) || 1; const sg = P.surge(lvl, G(), S.sub);
+    const lvl = fs.wild.level || memberLevel(fs.wild.destined) || partyLevel(); const sg = P.surge(lvl, G(), S.sub);
     const opp = r[5] ? WILD.WM.find(x=>x[0]===r[5]) : null;
-    res = `<div class="surge"><div><span>Destined · level ${lvl}</span><b style="font-family:var(--display);font-size:17px">${esc(fs.wild.destined || 'GM’s pick')}</b><span class="row" style="gap:4px;margin-top:4px"><button class="btn sm" data-act="wild-lvl" data-d="-1" aria-label="Lower the Destined's level">−</button><button class="btn sm" data-act="wild-lvl" data-d="1" aria-label="Raise the Destined's level">+</button></span></div><div><span>${isP() ? 'Surge rank' : 'Surge level'}</span><b>${sg.rank}</b></div><div><span>Surge DC${isP() ? '' : S.sub==='35' ? ' · 3.5' : ' · fifth edition'}</span><b>${sg.dc}</b></div></div>
+    res = `<div class="surge"><div><span>Destined’s level</span><b>${lvl}</b><span class="row" style="gap:4px;margin-top:4px"><button class="btn sm" data-act="wild-lvl" data-d="-1" aria-label="Lower the Destined's level">−</button><button class="btn sm" data-act="wild-lvl" data-d="1" aria-label="Raise the Destined's level">+</button></span></div><div><span>${isP() ? 'Surge rank' : 'Surge level'}</span><b>${sg.rank}</b></div><div><span>Surge DC${isP() ? '' : S.sub==='35' ? ' · 3.5' : ' · fifth edition'}</span><b>${sg.dc}</b></div></div>
       <div class="wm ${side}"><div class="meta"><span class="pill ${side}">${esc(r[2])}</span><span>#${r[0]}</span><span>${r[3].toFixed(2)}%</span><span>about 1 in ${esc(r[4])}</span></div><h3>${esc(wmName(r))}</h3><p>${esc(wmText(r))}</p>
       ${r[0]===29 ? (ui.fglimpse ? `<div class="reorder">${ui.fglimpse.map((c,i)=>`<div class="slot">${card(c,{size:'md'})}<span>${i===0?'Top':i===1?'Second':'Third'}</span><span class="row"><button class="btn sm" data-act="fg-move" data-i="${i}" data-d="-1" ${i===0?'disabled':''} aria-label="Move earlier">←</button><button class="btn sm" data-act="fg-move" data-i="${i}" data-d="1" ${i===ui.fglimpse.length-1?'disabled':''} aria-label="Move later">→</button></span></div>`).join('')}</div><div class="row"><button class="btn sm primary" data-act="fg-done">Put them back</button></div>` : `<div class="row"><button class="btn sm primary" data-act="fg-show">Show the Destined the top 3 Fate Deck cards</button></div>`) : ''}
       ${r[0]===36 ? `<div class="row"><button class="btn sm primary" data-act="fate-grand">Reshuffle the Fate Deck with its discard pile</button></div>` : ''}
@@ -2629,13 +2628,13 @@ function wildPanel(fs){
       ${LIVE.role==='gm' && LIVE.table && !LIVE.cantEmit ? (fs.wild.sent ? '<p class="note">Sent to the players’ phones.</p>' : `<button class="btn" data-act="wild-send">Send it to the players’ phones</button>`) : ''}
       <button class="btn fate" data-act="return-faces">Return the 12 face cards to the discard pile</button>`;
   } else {
-    res = `<p class="note">${fs.sets.length ? `${done} set${done===1?'':'s'} complete. Wild magic goes off when the fourth set is full, about every 48 Fate Deck checks.` : 'No face cards yet. When one comes up on a check made in response to a player, it lands here.'}</p>`;
+    res = `<p class="note">${fs.sets.length ? `${done} set${done===1?'':'s'} complete. Wild magic goes off when the fourth set is full, about every 48 Fate Deck checks.` : 'No face cards yet. Every face card the GM draws lands in the sets and is replaced.'}</p>`;
   }
   const palette = ['♥','♦','♠','♣'].map(s=>`<div class="suit">${['J','Q','K'].map(rk=>{ const used = fs.sets.some(x=>x.card.r===rk && x.card.s===s); return `<button type="button" class="pcbtn" data-act="place-face" data-c="${rk}${s}" ${used||fs.sets.length>=12?'disabled':''} aria-label="Place ${P.cardName({r:rk,s})}">${card({r:rk,s},{size:'sm'})}</button>`; }).join('')}</div>`).join('');
   return `<section class="panel" aria-labelledby="wm-h"><div class="panel-h"><h2 id="wm-h">Wild magic</h2><span class="hint">${fs.sets.length} of 12 · net ${signed(net)}</span></div>
     ${res}
     <details><summary class="small" style="cursor:pointer">Placing face cards by hand (physical Fate Deck, or a correction)</summary>
-      <div class="view" style="gap:10px;margin-top:10px"><div class="palette">${palette}</div><div class="row"><button class="btn sm" data-act="unplace-face" ${fs.sets.length?'':'disabled'}>Undo the last face card</button></div><p class="note">Hand-placed cards count for the player picked under “Whose action”.</p></div></details>
+      <div class="view" style="gap:10px;margin-top:10px"><div class="palette">${palette}</div><div class="row"><button class="btn sm" data-act="unplace-face" ${fs.sets.length?'':'disabled'}>Undo the last face card</button></div><p class="note">The rules count only face cards drawn for checks made in response to a player’s action. If one shouldn’t count, Undo the last face card puts it back in the deck.</p></div></details>
   </section>`;
 }
 function effectsList(fs){
@@ -2688,7 +2687,7 @@ function genCode(){ const a = 'abcdefghjkmnpqrstuvwxyz23456789'; let c = ''; for
 function dropLive(){ for (const u of LIVE.unsubs){ try { u(); } catch(e){} } LIVE.unsubs = []; LIVE.table = null; LIVE.peers = []; LIVE.role = null; LIVE.code = null; LIVE.sent = ''; }
 function liveRefresh(){
   // Update only what live data touches, so typing elsewhere isn't interrupted.
-  if (S.tab==='gm'){ const t = $('gm-table'); if (t) t.innerHTML = tablePanelInner(); const w = $('gm-who'); if (w) w.innerHTML = whoPick(); }
+  if (S.tab==='gm'){ const t = $('gm-table'); if (t) t.innerHTML = tablePanelInner(); }
   else if (S.tab==='play'){ const t = $('play-table'); if (t) t.innerHTML = playTableInner(); }
 }
 function watchTable(t){
@@ -2958,10 +2957,11 @@ function wildBanner(deck){
   const row = WILD.WM.find(r=>r[0]===wn.n); if (!row) return '';
   const side = row[2].startsWith('Good') ? 'good' : row[2].startsWith('Bad') ? 'bad' : 'mixed';
   const a = wildApply(wn.n), mine = wn.destined && nm(wn.destined)===nm(deck.name);
-  const can = a && (a.who==='all' || mine);
+  const can = !!a;
+  const label = a ? (a.who==='destined' && !mine ? 'If you’re the Destined, a' + a.label.slice(1) : a.label) : '';
   return `<div class="wm ${side}" role="status"><div class="meta"><span class="pill ${side}">${esc(row[2])}</span><span>#${row[0]}</span><span>from the GM</span>${wn.destined ? `<span>Destined: ${esc(wn.destined)}${mine?' (you)':''}</span>` : ''}</div>
     <h3>Wild magic: ${esc(wmName(row))}</h3><p>${esc(wmText(row))}</p>${a && a.note ? `<p class="note">${esc(a.note)}</p>` : ''}
-    <div class="row">${can ? `<button class="btn sm primary" data-act="wild-apply">${esc(a.label)}</button>` : ''}<button class="btn sm" data-act="wild-dismiss">${can ? 'Not me' : 'Got it'}</button></div></div>`;
+    <div class="row">${can ? `<button class="btn sm primary" data-act="wild-apply">${esc(label)}</button>` : ''}<button class="btn sm" data-act="wild-dismiss">${can ? 'Not me' : 'Got it'}</button></div></div>`;
 }
 
 /* The party the GM sees: characters added by hand, players at the live table, and decks on this device. */
@@ -2977,6 +2977,8 @@ function party(){
   return out;
 }
 const memberLevel = name => { const m = party().find(x=>x.key===nm(name)); return m ? m.level : null; };
+// The table's level, for the Destined's level when wild magic goes off: the average of the characters' levels.
+const partyLevel = () => { const l = party().map(m=>+m.level).filter(x=>x>0); return l.length ? Math.max(1, Math.min(20, Math.round(l.reduce((a,x)=>a+x,0)/l.length))) : 1; };
 function statusOf(m){
   if (m.live){ const x = m.live; return {size:num(x.size,0,200,0), left:num(x.left,0,200,0), lvl:num(x.lvl,0,4,0), col:!!x.col, hero:num(x.hero,0,3,0), insp:!!x.insp, enc:!!x.enc, held:num(x.held,0,20,0), kept:clean(x.kept,6), sign:clean(x.sign,16), ab:clean(x.ab,24), game:x.game==='classic'?'classic':'ae', last:x.last && typeof x.last==='object' ? x.last : null, at:+x.at||0, src:'live'}; }
   if (m.local){ const d = m.local, st = pstate(d), r = st.table; let last = null;
@@ -3022,11 +3024,6 @@ function tablePanelInner(){
       <button class="btn sm ${enc?'':'primary'}" data-act="table-enc">${enc ? 'End the encounter' : 'Start an encounter'}${hosting || S.gm.showLocal ? ' for everyone' : ''}</button></div>
     <div class="opt" style="padding:4px 0;border:0"><div><b>Show decks on this device</b><p>For a table sharing one phone or tablet, or playing offline.</p></div><button type="button" class="switch" role="switch" aria-checked="${!!S.gm.showLocal}" data-act="table-local" aria-label="Show decks on this device"></button></div>
     ${LIVE.cantEmit ? `<p class="note">Only the page’s owner or an editor can start encounters or send wild magic to players’ phones. Tell the table instead.</p>` : ''}`;
-}
-// Whose action the GM is responding to: the face cards drawn then count toward wild magic for that player.
-function whoPick(){
-  const members = party();
-  return `<div class="field"><span>Whose action is the GM responding to?</span><div class="who-pick" role="radiogroup" aria-label="Responding to">${members.map(m=>`<button type="button" role="radio" aria-pressed="${nm(S.gm.who)===m.key}" data-act="who" data-name="${esc(m.name)}">${esc(m.name)}</button>`).join('')}<button type="button" role="radio" aria-pressed="${!S.gm.who}" data-act="who" data-name="">No one</button></div><p class="note">Face cards count toward wild magic only on checks made in response to a player’s action or request, including their ${isP() ? 'minions’ checks, flat checks' : 'companions’ checks, plain rolls'} and secret checks. Whoever completes the fourth set is the Destined.</p></div>`;
 }
 function lanHostBar(hosting, players){
   if (HOST!=='android') return `<p class="note">Only the Android app can host a table. You can still use <b>Show decks on this device</b>.</p>`;
@@ -3335,7 +3332,6 @@ const ACT = {
   gmod(el){ S.gm.input.mod = (+S.gm.input.mod||0) + (+el.dataset.d); render(); },
   flatdc(el){ S.gm.flatDc = Math.max(1, Math.min(25, (+S.gm.flatDc||11) + (+el.dataset.d))); render(); },
   dying(el){ S.gm.dying = +el.dataset.n; render(); },
-  who(el){ S.gm.who = el.dataset.name || null; liveRefresh(); flush(); },
   'table-host'(){ if (LAN) hostLan(); else hostTable(); },
   'table-close'(){ closeTable(); },
   'table-find'(){ if (LAN) findLan(); else findTables(); },
@@ -3349,15 +3345,15 @@ const ACT = {
   'table-local'(){ S.gm.showLocal = !S.gm.showLocal; render(); },
   'party-cancel'(){ ui.editParty = null; render(); },
   'wild-send'(){ sendWild(fate()); },
-  'wild-lvl'(el){ const fs = fate(); if (!fs.wild) return; fs.wild.level = Math.max(1, Math.min(20, (fs.wild.level || memberLevel(fs.wild.destined) || 1) + (+el.dataset.d))); render(); },
+  'wild-lvl'(el){ const fs = fate(); if (!fs.wild) return; fs.wild.level = Math.max(1, Math.min(20, (fs.wild.level || memberLevel(fs.wild.destined) || partyLevel()) + (+el.dataset.d))); render(); },
   'wild-dismiss'(){ ui.wildNote = null; render(); },
   'wild-apply'(){ const wn = ui.wildNote, a = wn && wildApply(wn.n); if (!a) return; withDeck((d,st)=>{ a.fn(st, abOn()); }); ui.wildNote = null; render(); toast('Applied to your deck'); },
-  gdraw(el){ ui.scrollTable = true; const gi = S.gm.input; gmMark(); P.fateCheck(fate(), {type:gi.type, mode:el.dataset.mode, mod:+gi.mod||0, dc: gi.dc===''?'':+gi.dc, who: wmOn() ? S.gm.who : null}); ui.gmFresh = true; render(); },
-  gsecret(){ ui.scrollTable = true; const gi = S.gm.input; gmMark(); P.fateCheck(fate(), {type:'skill', mode:'normal', mod:+gi.mod||0, dc: gi.dc===''?'':+gi.dc, who: wmOn() ? S.gm.who : null, label:'Secret check'}); ui.gmFresh = true; render(); },
-  glucky(){ ui.scrollTable = true; gmMark(); P.luckyNumber(fate(), wmOn() ? S.gm.who : null); ui.gmFresh = true; render(); },
-  greroll(el){ ui.scrollTable = true; P.fateReroll(fate(), el.dataset.how, wmOn() ? S.gm.who : null); ui.gmFresh = true; render(); },
-  gflat(el){ ui.scrollTable = true; P.flatCheck(fate(), S.gm.flatDc, {mode:el.dataset.mode, who: wmOn() ? S.gm.who : null, label: W().flat}); ui.gmFresh = true; render(); },
-  grecovery(){ ui.scrollTable = true; const r = P.flatCheck(fate(), 10 + S.gm.dying, {mode:'normal', who: wmOn() ? S.gm.who : null, label:'Recovery check', type:'flat'}); r.recovery = true; ui.gmFresh = true; render(); },
+  gdraw(el){ ui.scrollTable = true; const gi = S.gm.input; gmMark(); P.fateCheck(fate(), {type:gi.type, mode:el.dataset.mode, mod:+gi.mod||0, dc: gi.dc===''?'':+gi.dc, who: null}); ui.gmFresh = true; render(); },
+  gsecret(){ ui.scrollTable = true; const gi = S.gm.input; gmMark(); P.fateCheck(fate(), {type:'skill', mode:'normal', mod:+gi.mod||0, dc: gi.dc===''?'':+gi.dc, who: null, label:'Secret check'}); ui.gmFresh = true; render(); },
+  glucky(){ ui.scrollTable = true; gmMark(); P.luckyNumber(fate(), null); ui.gmFresh = true; render(); },
+  greroll(el){ ui.scrollTable = true; P.fateReroll(fate(), el.dataset.how, null); ui.gmFresh = true; render(); },
+  gflat(el){ ui.scrollTable = true; P.flatCheck(fate(), S.gm.flatDc, {mode:el.dataset.mode, who: null, label: W().flat}); ui.gmFresh = true; render(); },
+  grecovery(){ ui.scrollTable = true; const r = P.flatCheck(fate(), 10 + S.gm.dying, {mode:'normal', who: null, label:'Recovery check', type:'flat'}); r.recovery = true; ui.gmFresh = true; render(); },
   gdeath(){ ui.scrollTable = true; const r = P.flatCheck(fate(), 10, {mode:'normal', who:null, label:'Death saving throw', type:'flat'}); r.death = true; ui.gmFresh = true; render(); },
   'to-wild'(){ const t = $('wm-h'); if (t) t.scrollIntoView({block:'start', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'}); },
   'undo-gcheck'(){
@@ -3375,7 +3371,7 @@ const ACT = {
   'fate-grand'(){ const fs = fate(); if (fs.table){ fs.discard.push(...fs.table.cards); fs.table = null; } fs.draw.push(...fs.discard.splice(0)); P.shuffle(fs.draw); render(); toast('Fate Deck reshuffled'); },
   'return-faces'(){ ui.fglimpse = null; S.gm.wildSeen = null; P.returnFaces(fate()); ui.oddity = null; render(); toast('Face cards returned to the discard pile'); },
   oddity(){ ui.oddity = P.oddity(dmgState('g'), G()); render(); },
-  'place-face'(el){ const c = el.dataset.c; P.placeFace(fate(), {r:c[0], s:c.slice(1)}, S.gm.who); render(); },
+  'place-face'(el){ const c = el.dataset.c; P.placeFace(fate(), {r:c[0], s:c.slice(1)}, null); render(); },
   'unplace-face'(){ P.unplaceFace(fate()); render(); },
   'party-edit'(el){ ui.editParty = el.dataset.id; render(); const n = $('pe-name'); if (n) n.focus(); },
   'party-save'(el){ const p = S.gm.party.find(x=>x.id===el.dataset.id); if (p){ const was = p.name; p.name = clean(($('pe-name').value||'').trim(), 40) || p.name; if (nm(S.gm.who)===nm(was)) S.gm.who = p.name; S.gm.party.forEach(x=>x.ex=false); p.level = Math.max(1, Math.min(20, +$('pe-level').value||p.level)); p.ex = false; } ui.editParty = null; render(); },
