@@ -356,6 +356,21 @@ button.pcbtn:hover .pc{transform:translateY(-3px)}
 .undo-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:8px}
 .undo-row .btn{flex:none}
 .undo-row .note{flex:1 1 200px}
+.gmdraw-grid{display:grid;grid-template-columns:minmax(0,7fr) minmax(0,5fr);gap:18px 40px;align-items:start}
+.gmd{display:flex;flex-direction:column;gap:14px;min-width:0}
+@media (min-width:900px){.gmd-flat{position:relative}.gmd-flat::before{content:"";position:absolute;left:-20px;top:2px;bottom:2px;border-left:1px dotted var(--line)}}
+@media (max-width:899px){.gmdraw-grid{grid-template-columns:minmax(0,1fr)}.gmd-flat{padding-top:4px}}
+.wmstrip{margin-top:auto;display:flex;align-items:center;flex-wrap:wrap;gap:8px 12px;padding-top:12px;border-top:1px solid var(--sky-line)}
+.wmstrip .wml{font-family:var(--ui);text-transform:uppercase;font-weight:500;font-size:11.5px;letter-spacing:.14em;color:var(--sky-muted)}
+.wmsets{display:flex;flex-wrap:wrap;gap:10px}
+.wmset{display:flex;gap:2px}
+.wmc{width:15px;height:21px;border-radius:2px;flex:none;display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;line-height:1;font-family:var(--display);font-size:10px;background:var(--face);color:var(--card-ink);border:1px solid var(--card-edge)}
+.wmc i{font-style:normal;font-family:var(--suit);font-size:8.5px}
+.wmc.red{color:var(--card-red)}
+.wmc.e{background:transparent;border:1px dashed var(--sky-line)}
+.wmc.e.next{border-color:var(--gilt)}
+.wmstrip .wmn{margin-left:auto;font-family:var(--mono);font-size:12.5px;color:var(--sky-muted)}
+.tnotes .linkbtn{background:none;border:0;padding:0;font:inherit;color:var(--gilt);text-decoration:underline;cursor:pointer}
 .wmbar{display:flex;align-items:center;gap:14px;padding:10px 14px;border:1px solid var(--line);border-radius:var(--r);background:var(--surface)}
 .wmbar b{font-weight:600}
 .wmbar p{font-size:15.5px;color:var(--muted);font-style:italic}
@@ -2511,11 +2526,13 @@ function viewGM(){
   const types = [['attack','Attack'],['save','Save'],['skill','Skill'],['initiative', isP()?'Perception':'Initiative']];
   let h = `<div class="view"><div class="vhead"><div><p class="eyebrow">For the GM · ${w.game}</p><h1>Fate Deck</h1></div><p>Draw for monsters, minions, ${isP()?'flat checks':'plain rolls'} and secret checks.</p></div>`;
   h += `<div class="wmbar"><button type="button" class="switch" role="switch" aria-checked="${wmOn()}" data-act="set-wild" aria-labelledby="wmbar-l"></button><div><b id="wmbar-l">Wild magic</b><p>${wmOn() ? 'On: the 12 face cards are in the Fate Deck (112 cards). Each one drawn drops into the wild magic sets by itself and is replaced, so the odds are the same either way.' : 'Off: the Fate Deck is 100 cards. It’s an optional rule: switch it on to add the 12 face cards, which feed wild magic and never change a check.'}</p></div></div>`;
-  h += '<div class="cols"><div class="col">';
-  // the table: every character, live from their phones, from this device, or added by hand
-  h += `<section class="panel" id="gm-table" aria-labelledby="party-h">${tablePanelInner()}</section>`;
-  // draw
-  h += `<section class="panel" aria-labelledby="gd-h"><div class="panel-h"><h2 id="gd-h">Draw</h2><span class="hint">${fs.draw.length} left to draw of ${wmOn() ? 112 : 100}${wmOn() ? ` · ${fs.sets.length} face card${fs.sets.length===1?'':'s'} in the sets` : ''}</span></div>
+  // Every draw from the Fate Deck, in one section: checks on the left, flat checks on the right.
+  const need = P.flatNeed(S.gm.flatDc);
+  h += `<section class="panel gmdraw" aria-label="Draw from the Fate Deck">
+    ${wmOn() ? `<div id="gm-who">${whoPick()}</div>` : ''}
+    <div class="gmdraw-grid">
+    <div class="gmd" role="group" aria-labelledby="gd-h">
+    <div class="panel-h"><h2 id="gd-h">Draw</h2><span class="hint">${fs.draw.length} left to draw of ${wmOn() ? 112 : 100}${wmOn() ? ` · ${fs.sets.length} face card${fs.sets.length===1?'':'s'} in the sets` : ''}</span></div>
     <div class="setup">
       <div class="field types"><span>Monster or minion check</span><div class="chips" role="group" aria-label="Check type">${types.map(([k,l])=>`<button type="button" class="chip" data-act="gtype" data-type="${k}" aria-pressed="${gi.type===k}">${l}</button>`).join('')}</div></div>
       <div class="field"><span>Modifier</span>${stepper('g-mod', gi.mod, 'gmod', 'modifier')}</div>
@@ -2532,20 +2549,25 @@ function viewGM(){
       <button class="btn stack sm" data-act="greset">Fresh shuffle<small>${wmOn() ? 'placed face cards stay' : 'all 100 cards'}</small></button>
     </div>
     ${undoRow('f:'+G(), 'undo-gcheck', 'the Fate Deck')}
-  </section>`;
-  h += fateTable(fs);
-  // flat checks
-  const need = P.flatNeed(S.gm.flatDc);
-  h += `<section class="panel"><div class="panel-h"><h2>${w.flat}${isP()?'s':'s'}</h2><span class="hint">One Fate Deck card · never costs players cards</span></div>
+    </div>
+    <div class="gmd gmd-flat" role="group" aria-labelledby="gf-h">
+    <div class="panel-h"><h2 id="gf-h">${w.flat}s</h2><span class="hint">One Fate Deck card · never costs players cards</span></div>
     <div class="row" style="align-items:flex-end;gap:12px"><div class="field"><span>${isP()?'Flat check DC':'d20 roll needed'}</span>${stepper('g-flat', S.gm.flatDc, 'flatdc', 'DC')}</div><span class="chip fate">Needs: ${esc(need.text)}</span></div>
     <div class="grid3"><button class="btn fate stack" data-act="gflat" data-mode="normal">${w.flat}<small>1 card</small></button><button class="btn stack" data-act="gflat" data-mode="fortune">${w.fortune}<small>2 cards, keep the better</small></button><button class="btn stack" data-act="gflat" data-mode="misfortune">${w.misfortune}<small>2 cards, keep the worse</small></button></div>
     ${isP() ? `<div class="row" style="align-items:flex-end;gap:12px"><div class="field"><span>Dying value</span><div class="levels" role="group" aria-label="Dying value" style="width:170px">${[1,2,3].map(n=>`<button type="button" data-act="dying" data-n="${n}" aria-pressed="${S.gm.dying===n}">${n}</button>`).join('')}</div></div><button class="btn" data-act="grecovery">Recovery check · DC ${10+S.gm.dying}</button></div>`
       : `<div class="row"><button class="btn" data-act="gdeath">Death saving throw</button><span class="note">Fifth edition: a 4 or higher succeeds; a Sun regains 1 hit point, an Eclipse counts as two failures.</span></div>`}
     <p class="note">${isP() ? 'Concealed DC 5 · hidden DC 11 · persistent damage DC 15. A Sun always succeeds and an Eclipse always fails.' : 'A Sun always succeeds and an Eclipse always fails. Miss chances use two damage cards as a d100.'}</p>
+    </div>
+    </div>
   </section>`;
+  h += '<div class="cols"><div class="col">';
+  // the card display, with the wild magic sets along its bottom
+  h += fateTable(fs);
+  // the table: every character, live from their phones, from this device, or added by hand
+  h += `<section class="panel" id="gm-table" aria-labelledby="party-h">${tablePanelInner()}</section>`;
   h += '</div><div class="col">';
-  if (wmOn()) h += wildPanel(fs);
   h += damagePanel('g');
+  if (wmOn()) h += wildPanel(fs);
   if (wmOn()) h += effectsList(fs);
   h += gmLog(fs);
   h += '</div></div></div>';
@@ -2554,7 +2576,7 @@ function viewGM(){
 function fateTable(fs){
   const r = fs.table;
   let h = `<section class="table fate" aria-live="polite"><div class="th"><span class="lbl">${r ? gmLabel(r) : 'The Fate Deck'}</span><span class="lbl">${fs.draw.length} in deck</span></div>`;
-  if (!r){ h += `<div class="idle"><div class="fan">${card(null,{back:true,size:'lg'})}</div><p>Shuffled and ready. Set the modifier and DC if you want the result worked out, then draw.</p></div>`; return h + '</section>'; }
+  if (!r){ h += `<div class="idle"><div class="fan">${card(null,{back:true,size:'lg'})}</div><p>Shuffled and ready. Set the modifier and DC if you want the result worked out, then draw.</p></div>`; return h + wmStrip(fs) + '</section>'; }
   const faces = (r.events||[]).filter(e=>e.kind==='face'||e.kind==='face-away');
   if (r.kind==='flat'){
     const cards = r.cards.map((c,i)=>card(c,{size:'lg',dim:!r.keep.includes(i),deal:ui.gmFresh?i:null})).join('');
@@ -2569,10 +2591,18 @@ function fateTable(fs){
   for (const e of faces) notes.push(e.kind==='face' ? `<p class="gold"><b>${esc(P.cardName(e.card))}</b> drawn and replaced. It goes into the wild magic sets for ${esc(partyName(e.who)||'the party')}.</p>` : `<p><b>${esc(P.cardName(e.card))}</b> drawn and replaced. No player’s action, so it doesn’t count; it goes to the discard pile.</p>`);
   if ((r.events||[]).some(e=>e.kind==='fatereshuffle')) notes.push(`<p>The Fate Deck ran out and was reshuffled. It never causes ${W().exh}.</p>`);
   for (const n of (r.notes||[])) notes.push(`<p>${esc(n)}</p>`);
-  if (fs.wild && (r.events||[]).some(e=>e.kind==='face')) notes.push(`<p class="gold"><b>The fourth set is complete: wild magic goes off.</b> See the wild magic panel.</p>`);
+  if (fs.wild && (r.events||[]).some(e=>e.kind==='face')) notes.push(`<p class="gold"><b>The fourth set is complete: wild magic goes off.</b> <button type="button" class="linkbtn" data-act="to-wild">See the wild magic panel</button></p>`);
   h += `<div class="tnotes">${notes.join('')}</div>`;
   if (r.kind==='check') h += `<div class="tact"><button class="btn sm" data-act="greroll" data-how="new">Reroll: ${W().rNew.toLowerCase()}</button><button class="btn sm" data-act="greroll" data-how="better">Reroll: ${W().rBetter.toLowerCase()}</button></div>`;
-  return h + '</section>';
+  return h + wmStrip(fs) + '</section>';
+}
+// The wild magic sets, small, along the bottom of the card display: four sets of three.
+function wmStrip(fs){
+  if (!wmOn()) return '';
+  const n = fs.sets.length;
+  const slot = i => { const x = fs.sets[i]; if (!x) return `<span class="wmc e${i===n ? ' next' : ''}"></span>`;
+    const c = x.card; return `<span class="wmc${P.RED(c.s) ? ' red' : ''}" title="${esc(P.cardName(c))}">${c.r}<i>${c.s}&#xFE0E;</i></span>`; };
+  return `<div class="wmstrip" role="img" aria-label="Wild magic sets: ${n} of 12 face cards placed"><span class="wml" aria-hidden="true">Wild magic</span><span class="wmsets" aria-hidden="true">${[0,1,2,3].map(k=>`<span class="wmset">${[0,1,2].map(j=>slot(3*k+j)).join('')}</span>`).join('')}</span><span class="wmn" aria-hidden="true">${n}/12</span></div>`;
 }
 function gmLabel(r){
   const w = W();
@@ -2583,12 +2613,7 @@ function gmLabel(r){
 function wildPanel(fs){
   const sets = P.setsOf(fs.sets);
   let net = 0, done = 0;
-  const rows = sets.map((set,i)=>{
-    const v = set.length===3 ? P.setValue(set) : null; if (v!==null){ net += v; done++; }
-    const slots = [0,1,2].map(j=> set[j] ? card(set[j].card,{size:'sm'}) : `<span class="slotempty ${3*i+j===fs.sets.length?'next':''}"></span>`).join('');
-    const lab = v===null ? `${set.length} of 3` : v===0 ? '<b>0</b> no pair' : `<b>${signed(v)}</b> ${Math.abs(v)===3?'one suit':'pair'}`;
-    return `<div class="set"><span class="l">Set ${i+1}</span><span class="slots">${slots}</span><span class="val">${lab}</span></div>`;
-  }).join('');
+  for (const set of sets){ if (set.length===3){ net += P.setValue(set); done++; } }
   let res = '';
   if (fs.wild && fs.wild.row){
     const r = fs.wild.row, side = r[2].startsWith('Good') ? 'good' : r[2].startsWith('Bad') ? 'bad' : 'mixed';
@@ -2608,7 +2633,7 @@ function wildPanel(fs){
   }
   const palette = ['♥','♦','♠','♣'].map(s=>`<div class="suit">${['J','Q','K'].map(rk=>{ const used = fs.sets.some(x=>x.card.r===rk && x.card.s===s); return `<button type="button" class="pcbtn" data-act="place-face" data-c="${rk}${s}" ${used||fs.sets.length>=12?'disabled':''} aria-label="Place ${P.cardName({r:rk,s})}">${card({r:rk,s},{size:'sm'})}</button>`; }).join('')}</div>`).join('');
   return `<section class="panel" aria-labelledby="wm-h"><div class="panel-h"><h2 id="wm-h">Wild magic</h2><span class="hint">${fs.sets.length} of 12 · net ${signed(net)}</span></div>
-    <div class="sets">${rows}</div>${res}
+    ${res}
     <details><summary class="small" style="cursor:pointer">Placing face cards by hand (physical Fate Deck, or a correction)</summary>
       <div class="view" style="gap:10px;margin-top:10px"><div class="palette">${palette}</div><div class="row"><button class="btn sm" data-act="unplace-face" ${fs.sets.length?'':'disabled'}>Undo the last face card</button></div><p class="note">Hand-placed cards count for the player picked under “Whose action”.</p></div></details>
   </section>`;
@@ -2663,7 +2688,7 @@ function genCode(){ const a = 'abcdefghjkmnpqrstuvwxyz23456789'; let c = ''; for
 function dropLive(){ for (const u of LIVE.unsubs){ try { u(); } catch(e){} } LIVE.unsubs = []; LIVE.table = null; LIVE.peers = []; LIVE.role = null; LIVE.code = null; LIVE.sent = ''; }
 function liveRefresh(){
   // Update only what live data touches, so typing elsewhere isn't interrupted.
-  if (S.tab==='gm'){ const t = $('gm-table'); if (t) t.innerHTML = tablePanelInner(); }
+  if (S.tab==='gm'){ const t = $('gm-table'); if (t) t.innerHTML = tablePanelInner(); const w = $('gm-who'); if (w) w.innerHTML = whoPick(); }
   else if (S.tab==='play'){ const t = $('play-table'); if (t) t.innerHTML = playTableInner(); }
 }
 function watchTable(t){
@@ -2987,7 +3012,6 @@ function tablePanelInner(){
   else if (LIVE.status==='connecting') live = `<div class="livebar"><span class="chip">Connecting…</span></div>`;
   else live = `<div class="livebar"><button class="btn sm fate" data-act="table-host">Open a live table</button><span class="note">Players join from their own phones and their decks show up here.</span></div>`;
   if (LIVE.err) live += `<p class="callout bad small">${esc(LIVE.err)}</p>`;
-  const who = wmOn() ? `<div class="field"><span>Whose action is the GM responding to?</span><div class="who-pick" role="radiogroup" aria-label="Responding to">${members.map(m=>`<button type="button" role="radio" aria-pressed="${nm(S.gm.who)===m.key}" data-act="who" data-name="${esc(m.name)}">${esc(m.name)}</button>`).join('')}<button type="button" role="radio" aria-pressed="${!S.gm.who}" data-act="who" data-name="">No one</button></div><p class="note">Face cards count toward wild magic only on checks made in response to a player’s action or request, including their ${isP() ? 'minions’ checks, flat checks' : 'companions’ checks, plain rolls'} and secret checks. Whoever completes the fourth set is the Destined.</p></div>` : '';
   const enc = S.gm.enc;
   return `<div class="panel-h"><h2 id="party-h">The table</h2><span class="hint">${S.gm.party.some(p=>p.ex) && !members.some(m=>m.live||m.local) ? 'Example names · edit or remove them' : wmOn() ? `Levels set the surge ${isP() ? 'rank' : 'level'}` : ''}</span></div>
     ${live}
@@ -2997,8 +3021,12 @@ function tablePanelInner(){
     <div class="row"><button class="btn sm" data-act="party-add">Add a character by hand</button>
       <button class="btn sm ${enc?'':'primary'}" data-act="table-enc">${enc ? 'End the encounter' : 'Start an encounter'}${hosting || S.gm.showLocal ? ' for everyone' : ''}</button></div>
     <div class="opt" style="padding:4px 0;border:0"><div><b>Show decks on this device</b><p>For a table sharing one phone or tablet, or playing offline.</p></div><button type="button" class="switch" role="switch" aria-checked="${!!S.gm.showLocal}" data-act="table-local" aria-label="Show decks on this device"></button></div>
-    ${LIVE.cantEmit ? `<p class="note">Only the page’s owner or an editor can start encounters or send wild magic to players’ phones. Tell the table instead.</p>` : ''}
-    ${who}`;
+    ${LIVE.cantEmit ? `<p class="note">Only the page’s owner or an editor can start encounters or send wild magic to players’ phones. Tell the table instead.</p>` : ''}`;
+}
+// Whose action the GM is responding to: the face cards drawn then count toward wild magic for that player.
+function whoPick(){
+  const members = party();
+  return `<div class="field"><span>Whose action is the GM responding to?</span><div class="who-pick" role="radiogroup" aria-label="Responding to">${members.map(m=>`<button type="button" role="radio" aria-pressed="${nm(S.gm.who)===m.key}" data-act="who" data-name="${esc(m.name)}">${esc(m.name)}</button>`).join('')}<button type="button" role="radio" aria-pressed="${!S.gm.who}" data-act="who" data-name="">No one</button></div><p class="note">Face cards count toward wild magic only on checks made in response to a player’s action or request, including their ${isP() ? 'minions’ checks, flat checks' : 'companions’ checks, plain rolls'} and secret checks. Whoever completes the fourth set is the Destined.</p></div>`;
 }
 function lanHostBar(hosting, players){
   if (HOST!=='android') return `<p class="note">Only the Android app can host a table. You can still use <b>Show decks on this device</b>.</p>`;
@@ -3325,12 +3353,13 @@ const ACT = {
   'wild-dismiss'(){ ui.wildNote = null; render(); },
   'wild-apply'(){ const wn = ui.wildNote, a = wn && wildApply(wn.n); if (!a) return; withDeck((d,st)=>{ a.fn(st, abOn()); }); ui.wildNote = null; render(); toast('Applied to your deck'); },
   gdraw(el){ ui.scrollTable = true; const gi = S.gm.input; gmMark(); P.fateCheck(fate(), {type:gi.type, mode:el.dataset.mode, mod:+gi.mod||0, dc: gi.dc===''?'':+gi.dc, who: wmOn() ? S.gm.who : null}); ui.gmFresh = true; render(); },
-  gsecret(){ const gi = S.gm.input; gmMark(); P.fateCheck(fate(), {type:'skill', mode:'normal', mod:+gi.mod||0, dc: gi.dc===''?'':+gi.dc, who: wmOn() ? S.gm.who : null, label:'Secret check'}); ui.gmFresh = true; render(); },
-  glucky(){ gmMark(); P.luckyNumber(fate(), wmOn() ? S.gm.who : null); ui.gmFresh = true; render(); },
-  greroll(el){ P.fateReroll(fate(), el.dataset.how, wmOn() ? S.gm.who : null); ui.gmFresh = true; render(); },
-  gflat(el){ P.flatCheck(fate(), S.gm.flatDc, {mode:el.dataset.mode, who: wmOn() ? S.gm.who : null, label: W().flat}); ui.gmFresh = true; render(); },
-  grecovery(){ const r = P.flatCheck(fate(), 10 + S.gm.dying, {mode:'normal', who: S.gm.who, label:'Recovery check', type:'flat'}); r.recovery = true; ui.gmFresh = true; render(); },
-  gdeath(){ const r = P.flatCheck(fate(), 10, {mode:'normal', who:null, label:'Death saving throw', type:'flat'}); r.death = true; ui.gmFresh = true; render(); },
+  gsecret(){ ui.scrollTable = true; const gi = S.gm.input; gmMark(); P.fateCheck(fate(), {type:'skill', mode:'normal', mod:+gi.mod||0, dc: gi.dc===''?'':+gi.dc, who: wmOn() ? S.gm.who : null, label:'Secret check'}); ui.gmFresh = true; render(); },
+  glucky(){ ui.scrollTable = true; gmMark(); P.luckyNumber(fate(), wmOn() ? S.gm.who : null); ui.gmFresh = true; render(); },
+  greroll(el){ ui.scrollTable = true; P.fateReroll(fate(), el.dataset.how, wmOn() ? S.gm.who : null); ui.gmFresh = true; render(); },
+  gflat(el){ ui.scrollTable = true; P.flatCheck(fate(), S.gm.flatDc, {mode:el.dataset.mode, who: wmOn() ? S.gm.who : null, label: W().flat}); ui.gmFresh = true; render(); },
+  grecovery(){ ui.scrollTable = true; const r = P.flatCheck(fate(), 10 + S.gm.dying, {mode:'normal', who: wmOn() ? S.gm.who : null, label:'Recovery check', type:'flat'}); r.recovery = true; ui.gmFresh = true; render(); },
+  gdeath(){ ui.scrollTable = true; const r = P.flatCheck(fate(), 10, {mode:'normal', who:null, label:'Death saving throw', type:'flat'}); r.death = true; ui.gmFresh = true; render(); },
+  'to-wild'(){ const t = $('wm-h'); if (t) t.scrollIntoView({block:'start', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'}); },
   'undo-gcheck'(){
     const g = G(), k = 'f:'+g; if (!undoOK(k)) return;
     const old = JSON.parse(UNDO[k].snap); delete UNDO[k];
