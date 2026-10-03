@@ -600,7 +600,7 @@ button.pcbtn:hover .pc{transform:translateY(-3px)}
 
 /* save bar (build step 1 and the last step) */
 .savebar{display:flex;flex-direction:column;gap:12px}
-.savebar.top{border-top:1px solid var(--line-2);padding-top:14px;margin-top:4px}
+.savebar.lead{border-top:1px solid var(--line-2);padding-top:14px;margin-top:4px}
 .savesum{display:flex;gap:8px;align-items:flex-start;font-size:16px}
 .savesum b{font-weight:600}
 
@@ -2376,14 +2376,14 @@ function viewBuild(){
 // The name, level and save buttons: at the end of the builder, and again in step 1 so a player
 // can pick a sign or starter and go straight to Play.
 function showSaveBar(){
-  const bar = document.querySelector('.savebar.top'); if (!bar) return;
+  const bar = document.querySelector('.savebar.lead'); if (!bar) return;
   const r = bar.getBoundingClientRect(), vh = window.innerHeight - (window.innerWidth<900 ? 80 : 0);
   if (r.bottom > vh || r.top < 70) bar.scrollIntoView({block:'center', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'});
 }
 function saveBar(d, k, where){
   const top = where==='top';
   const sum = `${d.sign ? esc(SIGN_NAME[d.sign])+' deck' : 'Custom deck'} · ${k.S} cards · ${esc(L.setupName(k.R,k.B))}${isP() && k.ab ? ' · '+esc(k.ab.name) : ''}`;
-  return `<div class="savebar ${top?'top':''}">
+  return `<div class="savebar ${top?'lead':''}">
     ${top ? `<p class="savesum">${mk(k.pass)} <span><b>${d.editId ? 'Editing' : 'Ready to play'}:</b> ${sum}${k.pass ? ' · passes the Lab test' : ' · doesn’t pass the Lab test yet'}</span></p>` : ''}
     <div class="row" style="align-items:flex-end">
       <div class="field" style="flex:1 1 200px"><label for="deck-name-${where}">Character or deck name</label><input id="deck-name-${where}" class="input" value="${esc(d.name)}" placeholder="${d.sign ? esc(SIGN_NAME[d.sign])+' deck' : 'My deck'}" data-bind="deck-name" autocomplete="off"></div>
